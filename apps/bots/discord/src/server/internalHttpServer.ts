@@ -12,6 +12,18 @@ export function startInternalHttpServer(
 ): http.Server {
   const server = http.createServer(async (req, res) => {
     const url = req.url || ''
+
+    if (
+      (req.method === 'GET' || req.method === 'HEAD') &&
+      url === BOT_ROUTES.HEALTH_PATH
+    ) {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(
+        req.method === 'HEAD' ? undefined : JSON.stringify({ status: 'ok' }),
+      )
+      return
+    }
+
     if (
       req.method === 'POST' &&
       url.startsWith(BOT_ROUTES.INTERNAL_LEAVE_PREFIX)

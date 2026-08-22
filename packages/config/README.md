@@ -17,7 +17,7 @@ What's distinctive in each file:
 
 - `typescript/base.json` — strictness options common to every package; `react-app.json` and `node.json` both extend it
 - `typescript/react-app.json` — + browser/bundler/JSX settings (used by `apps/frontend`)
-- `typescript/node.json` — + `nodenext` module settings (used by `apps/frontend`'s `tsconfig.node.json` and all three bots)
+- `typescript/node.json` — + `nodenext` module settings and `"types": ["node"]` (used by all three bots; `apps/frontend`'s `tsconfig.node.json` extends `base.json` directly instead, since it only needs Node-flavored module resolution for `vite.config.ts`, not the Node type declarations). The explicit `types` array is load-bearing, not decoration: without it, `node:*` imports (e.g. `node:http`) fail to typecheck in some packages of this workspace even with `@types/node` installed — TypeScript's automatic `@types` discovery doesn't reliably walk pnpm's symlinked `node_modules/@types` layout here. Every package that extends `node.json` needs its own `"@types/node": "catalog:"` devDependency for this to resolve (see `AGENTS.md` in this directory for the rule).
 - `eslint/base.mjs` — `@eslint/js` + `typescript-eslint` recommended rules
 - `eslint/react.mjs` — `base` + `eslint-plugin-react-hooks`/`eslint-plugin-react-refresh` + `eslint-config-prettier` (used by `apps/frontend`)
 - `eslint/node.mjs` — `base` + Node globals + `eslint-config-prettier` (used by all three bots)
