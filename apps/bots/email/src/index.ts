@@ -1,11 +1,10 @@
 import http from 'node:http'
-
-const PORT = 3003
+import { BOT_CONFIG, BOT_ROUTES } from './constants.js'
 
 const server = http.createServer((req, res) => {
   if (
     (req.method === 'GET' || req.method === 'HEAD') &&
-    req.url === '/health'
+    req.url === BOT_ROUTES.HEALTH_PATH
   ) {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(
@@ -17,6 +16,6 @@ const server = http.createServer((req, res) => {
   res.end(JSON.stringify({ error: 'Not found' }))
 })
 
-server.listen(PORT, () => {
+server.listen(BOT_CONFIG.DEFAULT_PORT, () => {
   console.log('Email Bot ready')
 })
