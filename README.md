@@ -379,7 +379,7 @@ Connection details from the backend's own code live in [`apps/backend/README.md`
 
 Things that look done but have known gaps worth knowing about before relying on them:
 
-- **Test coverage is a placeholder, not real coverage.** The backend has zero tests (`mvn test` currently passes only because there's nothing to run). The frontend and each bot have exactly one placeholder Vitest smoke test each, added to give CI something meaningful to run — none of them test actual behavior yet. A green CI run currently means "compiles, lints, and formats correctly," not "is correct."
+- **Test coverage is thin.** The backend has one real integration test suite (`apps/backend/test/kotlin/repository/DiscordRepositoryImplTest.kt`, running against a real Testcontainers-provisioned Postgres — see [`apps/backend/README.md#testing`](apps/backend/README.md#testing)) covering a single repository; most repositories/services/routes have no tests yet. The frontend and each bot have exactly one placeholder Vitest smoke test each, added to give CI something meaningful to run — none of them test actual behavior yet. A green CI run mostly means "compiles, lints, and formats correctly, and the one thing under test still works," not "is correct."
 - **Deploy is not wired up.** `.github/workflows/deploy.yml` is a manual-trigger-only stub with TODO steps — merging to `main` does not deploy anything anywhere yet.
 
 ## Agent Configuration

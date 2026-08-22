@@ -61,6 +61,12 @@ java -jar target/backend.jar
 mvn test
 ```
 
+Repository tests run against a real, ephemeral PostgreSQL instance via [Testcontainers](https://testcontainers.com/) — no mocked database, no shared test DB to pollute. `test/kotlin/testsupport/PostgresRepositoryTest.kt` starts one `postgres:18-alpine` container per JVM run (the "singleton container" pattern — cheaper than restarting per test class), runs the real Flyway migrations against it, and hands subclasses a connected Exposed `Database`. See `test/kotlin/repository/DiscordRepositoryImplTest.kt` for the pattern to follow when adding a new repository test.
+
+Test sources live in `test/kotlin/` (a sibling of `src/`), not the conventional `src/test/kotlin` — `kotlin-maven-plugin`'s main `compile` execution scans `<sourceDirectory>src</sourceDirectory>` recursively, so a nested test directory would get compiled into the main (non-test) artifact too.
+
+Since this spins up a real container, it needs a working Docker (or Podman) socket — same requirement as `docker-compose up`, just triggered by Maven instead. If `mvn test` fails with `Could not find a valid Docker environment`, see Troubleshooting below.
+
 ## Architecture (N-Tier)
 
 The backend follows a clean N-Tier architecture with strict layer separation:
@@ -168,3 +174,9 @@ Current tables (all UUID-keyed, all scoped by `company_id` where relevant — se
 
 - `FlywayValidateException` / checksum mismatch: an already-applied migration file was edited after the fact. Flyway hashes each migration and refuses to proceed if a previously-run file no longer matches what was recorded — revert the edit and add a new migration instead, or (local dev database only, never shared/production data) drop the database and let Flyway recreate it from scratch.
 - Any actual SQL error (bad syntax, FK violation, etc.) in a new migration: fix the `.sql` file and restart — Flyway hasn't recorded that version as applied, so it'll retry it cleanly next launch.
+
+**`mvn test` fails with `Could not find a valid Docker environment`**: Testcontainers (see Testing above) needs a working Docker or Podman socket to start its ephemeral Postgres container.
+
+- Docker: works out of the box, nothing to configure.
+- Podman: start the user socket once with `systemctl --user start podman.socket`, then point Testcontainers at it: `DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock mvn test`. Under rootless Podman, Testcontainers' Ryuk sidecar (which reaps containers if the JVM crashes) sometimes can't start — add `TESTCONTAINERS_RYUK_DISABLED=true` if you see it fail; containers still get stopped normally on a clean JVM exit either way.
+- CI needs none of this — GitHub's `ubuntu-latest` runners have Docker preinstalled and running natively.
