@@ -141,9 +141,11 @@ Run it in the background with `docker-compose up --build -d`, watch logs with `d
 | postgres | 5432 | PostgreSQL database | angora-postgres |
 | backend | 8080 | KTor REST API | angora-backend |
 | frontend | 3000 | React web application | angora-frontend |
-| slack-bot | - | Slack integration bot | angora-slack-bot |
-| discord-bot | - | Discord integration bot | angora-discord-bot |
-| email-bot | - | Email processing bot | angora-email-bot |
+| slack-bot | 3002 (internal only) | Slack integration bot | angora-slack-bot |
+| discord-bot | 3001 (internal only) | Discord integration bot | angora-discord-bot |
+| email-bot | 3003 (internal only) | Email processing bot | angora-email-bot |
+
+"Internal only" ports aren't published to the host (no `ports:` mapping in `docker-compose.yml`) — reachable from other containers on `angora-network` only, and used for the bots' healthchecks (see [Health Checks](#health-checks)).
 
 ## Development
 
@@ -196,6 +198,7 @@ catalog:
   prettier: 3.9.5
   vite: 8.1.4
   vitest: 4.1.10
+  '@types/node': 24.13.3
 ```
 
 Each `package.json` references an entry as `"typescript": "catalog:"` instead of repeating the version. To bump one everywhere, edit the single line in `pnpm-workspace.yaml` and run `pnpm install`. The backend is a single Maven module, so there's no equivalent "share across modules" story on that side — its versions already live in one place, `apps/backend/pom.xml`.
@@ -361,10 +364,18 @@ angora/
 
 ## Health Checks
 
+Every service in `docker-compose.yml` has a healthcheck, so `docker compose ps` reports `healthy`/`unhealthy` for all six, and `depends_on: condition: service_healthy` gates startup order on it (frontend and all three bots wait for `backend` to be healthy before starting).
+
 | Service | Health Check | Endpoint |
 | --------- | --------------- | ---------- |
 | PostgreSQL | `pg_isready -U $POSTGRES_USER -d $POSTGRES_DB` | N/A |
 | Backend | `curl -f http://localhost:8080/api/health` | `/api/health` |
+| Frontend | `wget --spider -q http://localhost:3000/` | `/` (nginx-served SPA index) |
+| Slack bot | `wget --spider -q http://localhost:3002/health` | `/health` (internal, not published to the host) |
+| Discord bot | `wget --spider -q http://localhost:3001/health` | `/health` (internal; same server as `POST /leave/:guildId`, see [`apps/bots/discord/README.md`](apps/bots/discord/README.md)) |
+| Email bot | `wget --spider -q http://localhost:3003/health` | `/health` (internal, not published to the host) |
+
+The three bots use `wget` (not `curl`, which isn't present on `node:24-alpine`) against a minimal `node:http` server that starts unconditionally — this is also what keeps their containers running as long-lived processes rather than exiting after their startup log line.
 
 ## Database
 
@@ -380,7 +391,7 @@ Connection details from the backend's own code live in [`apps/backend/README.md`
 
 Things that look done but have known gaps worth knowing about before relying on them:
 
-- **Test coverage is a placeholder, not real coverage.** The backend has zero tests (`mvn test` currently passes only because there's nothing to run). The frontend and each bot have exactly one placeholder Vitest smoke test each, added to give CI something meaningful to run — none of them test actual behavior yet. A green CI run currently means "compiles, lints, and formats correctly," not "is correct."
+- **Test coverage is thin.** The backend has one real integration test suite (`apps/backend/test/kotlin/repository/DiscordRepositoryImplTest.kt`, running against a real Testcontainers-provisioned Postgres — see [`apps/backend/README.md#testing`](apps/backend/README.md#testing)) covering a single repository; most repositories/services/routes have no tests yet. The frontend and each bot have exactly one placeholder Vitest smoke test each, added to give CI something meaningful to run — none of them test actual behavior yet. A green CI run mostly means "compiles, lints, and formats correctly, and the one thing under test still works," not "is correct."
 - **Deploy is not wired up.** `.github/workflows/deploy.yml` is a manual-trigger-only stub with TODO steps — merging to `main` does not deploy anything anywhere yet.
 
 ## Agent Configuration

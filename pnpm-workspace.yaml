@@ -19,6 +19,7 @@ catalog:
   prettier: 3.9.5
   vite: 8.1.4
   vitest: 4.1.10
+  '@types/node': 24.13.3
 
 # Security patches for transitive deps that aren't declared directly anywhere
 # (pulled in via vite -> postcss -> nanoid, and via minimatch -> brace-expansion).

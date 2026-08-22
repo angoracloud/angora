@@ -129,8 +129,11 @@ A task is complete when:
 | Exposed | 1.3.1 | Latest stable; post-1.0 `org.jetbrains.exposed.v1.*` package layout |
 | Flyway | 12.11.0 | `flyway-core` + `flyway-database-postgresql` (split from core since Flyway 10); newest version clearing the 7-day age guardrail as of this pinning |
 | PostgreSQL JDBC | 42.7.13 | Latest stable |
-| PostgreSQL (server) | 18.x | `docker-compose.yml` uses `postgres:18-alpine`; volume mounts at `/var/lib/postgresql`, not `/var/lib/postgresql/data` |
+| PostgreSQL (server) | 18.x | `docker-compose.yml` uses `postgres:18-alpine`; volume mounts at `/var/lib/postgresql`, not `/var/lib/postgresql/data`; also the image `apps/backend`'s Testcontainers-based repository tests provision |
+| Testcontainers | 2.0.5 | `testcontainers-bom` imported in `apps/backend/pom.xml`'s `dependencyManagement`; test-only. Module artifacts got a `testcontainers-` prefix in the 2.0 line (e.g. `org.testcontainers:testcontainers-postgresql`, not the pre-2.0 `org.testcontainers:postgresql`) — don't revert to the old unprefixed coordinates |
+| JUnit Jupiter | 6.1.3 | `org.junit.jupiter:junit-jupiter` + `org.junit.platform:junit-platform-launcher` (the latter isn't pulled in transitively by the former as of JUnit 6 — Surefire needs it explicitly on the test classpath), both test-only in `apps/backend/pom.xml` |
 | Node.js | 24.x | Active LTS; used for frontend and bots |
+| @types/node | 24.13.3 | Matches the Node 24 runtime pinned everywhere above; shared via the pnpm catalog by `apps/frontend`, `packages/config`, and all three bots (frontend/`packages/config` don't execute Node code themselves, but need it so `vite`/`vitest`'s optional peer dependency resolves to one consistent version instead of floating) |
 | React | 19.x | Latest stable |
 | react-router | 8.3.0 | Frontend routing. Install as `react-router`, not `react-router-dom` — as of v8 the DOM bindings (`BrowserRouter`, `NavLink`, etc.) live in the main `react-router` package itself; `react-router-dom` is a v7-frozen compatibility shim |
 | lucide-react | 1.31.0 | Frontend icon set; newest version clearing the 7-day age guardrail as of this pinning |

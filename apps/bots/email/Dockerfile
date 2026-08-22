@@ -19,4 +19,5 @@ FROM node:24-alpine
 WORKDIR /app
 COPY --from=build /workspace/apps/bots/email/dist ./dist
 COPY --from=build /workspace/apps/bots/email/package.json .
+EXPOSE 3003
 CMD ["node", "dist/index.js"]

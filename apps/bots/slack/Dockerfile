@@ -19,4 +19,5 @@ FROM node:24-alpine
 WORKDIR /app
 COPY --from=build /workspace/apps/bots/slack/dist ./dist
 COPY --from=build /workspace/apps/bots/slack/package.json .
+EXPOSE 3002
 CMD ["node", "dist/index.js"]
