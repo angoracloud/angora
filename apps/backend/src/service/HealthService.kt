@@ -14,10 +14,10 @@ class HealthServiceImpl(private val healthRepository: HealthRepository) : Health
             if (isConnected) {
                 HealthResponse(status = "ok", database = "connected")
             } else {
-                HealthResponse(status = "ok", database = "disconnected", error = "Database check returned false")
+                HealthResponse(status = "error", database = "disconnected", error = "Database check returned false")
             }
         } catch (e: Exception) {
-            HealthResponse(status = "ok", database = "disconnected", error = e.message)
+            HealthResponse(status = "error", database = "disconnected", error = e.message)
         }
     }
 }
