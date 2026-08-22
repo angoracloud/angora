@@ -8,6 +8,7 @@ Scoped to `packages/config/`. See the [root AGENTS.md](../../AGENTS.md) for repo
 - Prettier is intentionally **not** per-package: `prettier.config.ts` at the repo root re-exports `@angora/config/prettier/index.ts`, and that's the only Prettier config in the repo.
 - **`typescript/`, `prettier/`, `vite/` are `.ts`/`.json`; `eslint/` is deliberately plain `.mjs` — do not convert it.** See `README.md` for the full explanation (`typescript-eslint` hard-crashes on import against TypeScript 7). If you're tempted to convert `eslint/*.mjs` to `.ts` for consistency, don't — confirmed broken as of typescript-eslint 8.64.0 (the newest version available when this was diagnosed).
 - **`package.json` pins `"typescript": "5.9.3"` directly instead of `"typescript": "catalog:"`** — this is the workaround for the crash above (see `README.md`). Don't change this pin to `catalog:`.
+- **`typescript/node.json` sets `"types": ["node"]`** — any package that extends it (currently all three bots) must have its own `"@types/node": "catalog:"` devDependency, or `node:*` imports won't typecheck (see `README.md` for why). Don't remove this `types` array without re-verifying `node:*` imports still typecheck across all three bots first.
 
 ## Allowed changes
 

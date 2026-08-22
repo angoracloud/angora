@@ -131,6 +131,7 @@ A task is complete when:
 | PostgreSQL JDBC | 42.7.13 | Latest stable |
 | PostgreSQL (server) | 18.x | `docker-compose.yml` uses `postgres:18-alpine`; volume mounts at `/var/lib/postgresql`, not `/var/lib/postgresql/data` |
 | Node.js | 24.x | Active LTS; used for frontend and bots |
+| @types/node | 24.13.3 | Matches the Node 24 runtime pinned everywhere above; shared via the pnpm catalog by `apps/frontend`, `packages/config`, and all three bots (frontend/`packages/config` don't execute Node code themselves, but need it so `vite`/`vitest`'s optional peer dependency resolves to one consistent version instead of floating) |
 | React | 19.x | Latest stable |
 | TypeScript | 7.x | Latest stable (Go-based compiler); dropped `baseUrl` and `moduleResolution: "node"` |
 | Vite | 8.x | Latest stable, for frontend |
