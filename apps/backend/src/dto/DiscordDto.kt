@@ -43,8 +43,3 @@ data class DiscordInviteResponse(
 data class SyncStatusResponse(
     val status: String = "synced"
 )
-
-@Serializable
-data class ErrorResponse(
-    val error: String
-)

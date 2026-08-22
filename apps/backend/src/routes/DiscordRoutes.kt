@@ -1,9 +1,9 @@
 package cloud.angora.routes
 
 import cloud.angora.constants.BackendConstants
-import cloud.angora.dto.ErrorResponse
 import cloud.angora.dto.SyncGuildRequest
 import cloud.angora.dto.SyncStatusResponse
+import cloud.angora.error.ApiException
 import cloud.angora.service.DiscordService
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -20,16 +20,20 @@ fun Route.discordRoutes(discordService: DiscordService) {
         delete(BackendConstants.Routes.DISCORD_SERVERS_BY_ID) {
             val idParam = call.parameters["id"]
             if (idParam.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing server id"))
-                return@delete
+                throw ApiException(
+                    HttpStatusCode.BadRequest,
+                    BackendConstants.Errors.MISSING_SERVER_ID_CODE,
+                    BackendConstants.Errors.MISSING_SERVER_ID_MESSAGE
+                )
             }
 
             val response = discordService.leaveServer(idParam)
-            if (response != null) {
-                call.respond(HttpStatusCode.OK, response)
-            } else {
-                call.respond(HttpStatusCode.NotFound, ErrorResponse("Server not found"))
-            }
+                ?: throw ApiException(
+                    HttpStatusCode.NotFound,
+                    BackendConstants.Errors.SERVER_NOT_FOUND_CODE,
+                    BackendConstants.Errors.SERVER_NOT_FOUND_MESSAGE
+                )
+            call.respond(HttpStatusCode.OK, response)
         }
 
         post(BackendConstants.Routes.DISCORD_BOT_SYNC) {

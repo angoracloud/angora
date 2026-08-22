@@ -86,6 +86,30 @@ Dependencies are wired in `src/Application.kt`.
 Test health: `curl http://localhost:8080/api/health`  
 Test servers: `curl http://localhost:8080/api/discord/servers`
 
+## Error Handling & Request Logging
+
+Every 4xx/5xx response returns the same JSON envelope:
+
+```json
+{
+  "error": {
+    "code": "server_not_found",
+    "message": "Server not found",
+    "requestId": "3fa2c1e0-3b5a-4b7a-9f2e-1a2b3c4d5e6f"
+  }
+}
+```
+
+This is produced by `StatusPages` (installed in `src/Application.kt`), which handles three cases:
+
+- **`ApiException`** (`src/error/ApiException.kt`) — the convention for expected error conditions. Routes/services throw `ApiException(statusCode, code, message)`; StatusPages catches it and builds the envelope with that status/code/message. This is how every new endpoint (auth, tickets, channels, ...) should signal a 4xx, instead of manually calling `call.respond(status, someAdHocBody)`.
+- **Any other `Throwable`** — logged server-side, mapped to a generic `500` with `code: "internal_error"` so unexpected exceptions never leak a stack trace to the client.
+- **Unmatched routes** — Ktor's default 404 is replaced with the same envelope (`code: "not_found"`) instead of a plain-text response.
+
+**Request IDs**: `CallId` (installed alongside `CallLogging`/`StatusPages`) accepts an inbound `X-Request-Id` header, or generates a UUID if the client didn't send one, and echoes it back on the response via the same header. That id is also what populates the `requestId` field in every error envelope.
+
+**Logs**: `CallLogging` puts the request id into SLF4J's MDC under the key `requestId` for the duration of each call, and `src/main/resources/logback.xml` includes `%X{requestId:-none}` in the log pattern — so every log line emitted while handling a request (including from `service`/`repository` code via their own `LoggerFactory.getLogger(...)`) is tagged `[reqId=<id>]`, making a single request's logs traceable across layers.
+
 ## Database access
 
 The backend connects via Exposed, reading the connection details from Ktor's config (`environment.config`) rather than `System.getenv()` directly:
