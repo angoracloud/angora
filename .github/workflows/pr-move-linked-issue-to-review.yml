@@ -1,0 +1,63 @@
+name: Move linked issues to In Review on PR open
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions: {}
+
+jobs:
+  move-to-in-review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move linked issues to In Review
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
+        run: |
+          set -euo pipefail
+
+          PROJECT_ID="PVT_kwDOEdunfc4BdyBj"
+          STATUS_FIELD_ID="PVTSSF_lADOEdunfc4BdyBjzhYREh8"
+          IN_REVIEW_OPTION_ID="df73e18b"
+
+          issue_ids=$(gh api graphql -f query='
+            query($id: ID!) {
+              node(id: $id) {
+                ... on PullRequest {
+                  closingIssuesReferences(first: 20) { nodes { id } }
+                }
+              }
+            }' -f id="$PR_NODE_ID" --jq '.data.node.closingIssuesReferences.nodes[].id')
+
+          if [ -z "$issue_ids" ]; then
+            echo "No linked issues found, nothing to do."
+            exit 0
+          fi
+
+          for issue_id in $issue_ids; do
+            item_id=$(gh api graphql -f query='
+              query($id: ID!) {
+                node(id: $id) {
+                  ... on Issue {
+                    projectItems(first: 20) { nodes { id project { id } } }
+                  }
+                }
+              }' -f id="$issue_id" | jq -r --arg pid "$PROJECT_ID" '.data.node.projectItems.nodes[] | select(.project.id == $pid) | .id')
+
+            if [ -z "$item_id" ]; then
+              echo "Issue $issue_id is not on the project, skipping."
+              continue
+            fi
+
+            gh api graphql -f query='
+              mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $project
+                  itemId: $item
+                  fieldId: $field
+                  value: { singleSelectOptionId: $value }
+                }) { projectV2Item { id } }
+              }' -f project="$PROJECT_ID" -f item="$item_id" -f field="$STATUS_FIELD_ID" -f value="$IN_REVIEW_OPTION_ID"
+          done
