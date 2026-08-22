@@ -15,7 +15,7 @@ WORKDIR /workspace/apps/frontend
 RUN pnpm run build
 
 # Stage 2: Serve with nginx
-FROM nginx:alpine
+FROM nginx:1.30-alpine
 COPY --from=build /workspace/apps/frontend/dist /usr/share/nginx/html
 COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 3000

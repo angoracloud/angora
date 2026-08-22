@@ -133,6 +133,7 @@ A task is complete when:
 | Testcontainers | 2.0.5 | `testcontainers-bom` imported in `apps/backend/pom.xml`'s `dependencyManagement`; test-only. Module artifacts got a `testcontainers-` prefix in the 2.0 line (e.g. `org.testcontainers:testcontainers-postgresql`, not the pre-2.0 `org.testcontainers:postgresql`) — don't revert to the old unprefixed coordinates |
 | JUnit Jupiter | 6.1.3 | `org.junit.jupiter:junit-jupiter` + `org.junit.platform:junit-platform-launcher` (the latter isn't pulled in transitively by the former as of JUnit 6 — Surefire needs it explicitly on the test classpath), both test-only in `apps/backend/pom.xml` |
 | Node.js | 24.x | Active LTS; used for frontend and bots |
+| @types/node | 24.13.3 | Matches the Node 24 runtime pinned everywhere above; shared via the pnpm catalog by `apps/frontend`, `packages/config`, and all three bots (frontend/`packages/config` don't execute Node code themselves, but need it so `vite`/`vitest`'s optional peer dependency resolves to one consistent version instead of floating) |
 | React | 19.x | Latest stable |
 | TypeScript | 7.x | Latest stable (Go-based compiler); dropped `baseUrl` and `moduleResolution: "node"` |
 | Vite | 8.x | Latest stable, for frontend |

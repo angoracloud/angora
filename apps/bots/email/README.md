@@ -34,6 +34,10 @@ Run these from `apps/bots/email/`, or from the repo root as `pnpm --filter angor
 
 Inside Docker, use the service name as hostname: `http://backend:8080/...` (not `localhost`).
 
+## Health check
+
+`src/index.ts` starts a minimal HTTP server on port `3003` exposing `GET /health` (`200 {"status":"ok"}`) — this is what `docker-compose.yml`'s healthcheck for `email-bot` probes, and it's also what keeps the container running as a long-lived process. The port isn't published to the host, only reachable inside `angora-network`.
+
 ## Notes
 
 - `package.json` declares `"type": "module"` — don't remove it.

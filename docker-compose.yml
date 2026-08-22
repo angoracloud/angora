@@ -56,11 +56,18 @@ services:
       dockerfile: apps/frontend/Dockerfile
     container_name: angora-frontend
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - '${FRONTEND_PORT:-3000}:3000'
     networks:
       - angora-network
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   slack-bot:
     build:
@@ -68,9 +75,16 @@ services:
       dockerfile: apps/bots/slack/Dockerfile
     container_name: angora-slack-bot
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - angora-network
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3002/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   discord-bot:
     build:
@@ -82,9 +96,16 @@ services:
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-123456789012345678}
       BACKEND_URL: http://backend:8080
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - angora-network
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3001/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   email-bot:
     build:
@@ -92,9 +113,16 @@ services:
       dockerfile: apps/bots/email/Dockerfile
     container_name: angora-email-bot
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - angora-network
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3003/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   angora-postgres-data:

@@ -1,6 +1,9 @@
 package cloud.angora
 
 import cloud.angora.constants.BackendConstants
+import cloud.angora.dto.ApiError
+import cloud.angora.dto.ApiErrorEnvelope
+import cloud.angora.error.ApiException
 import cloud.angora.repository.DiscordRepositoryImpl
 import cloud.angora.repository.HealthRepositoryImpl
 import cloud.angora.routes.discordRoutes
@@ -11,12 +14,19 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.callid.*
+import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.slf4j.event.Level
+import java.util.UUID
 
 fun main(args: Array<String>) {
     EngineMain.main(args)
@@ -38,6 +48,39 @@ fun Application.module() {
         user = dbUser,
         password = dbPassword
     )
+
+    install(CallId) {
+        header(HttpHeaders.XRequestId)
+        verify { it.isNotBlank() }
+        generate { UUID.randomUUID().toString() }
+    }
+
+    install(CallLogging) {
+        level = Level.INFO
+        callIdMdc("requestId")
+    }
+
+    install(StatusPages) {
+        exception<ApiException> { call, cause ->
+            call.respond(
+                cause.statusCode,
+                ApiErrorEnvelope(ApiError(cause.code, cause.message, call.callId ?: "unknown"))
+            )
+        }
+        exception<Throwable> { call, cause ->
+            call.application.log.error("Unhandled exception processing ${call.request.uri}", cause)
+            call.respond(
+                HttpStatusCode.InternalServerError,
+                ApiErrorEnvelope(ApiError("internal_error", "An unexpected error occurred", call.callId ?: "unknown"))
+            )
+        }
+        status(HttpStatusCode.NotFound) { call, status ->
+            call.respond(
+                status,
+                ApiErrorEnvelope(ApiError("not_found", "The requested resource was not found", call.callId ?: "unknown"))
+            )
+        }
+    }
 
     install(CORS) {
         anyHost()
