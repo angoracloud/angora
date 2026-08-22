@@ -40,7 +40,7 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 1. Define DTOs in `apps/backend/src/dto/`
 2. Define repository interface and Exposed implementation in `apps/backend/src/repository/`
 3. Define service interface and business logic implementation in `apps/backend/src/service/`
-4. Add the route handler in `apps/backend/src/routes/` calling the service — for expected error conditions (validation, not-found, etc.), `throw ApiException(statusCode, code, message)` rather than manually building an error response; StatusPages converts it to the standard envelope. See `apps/backend/README.md`'s "Error Handling & Request Logging" section.
+4. Add the route handler in `apps/backend/src/routes/` calling the service — for expected error conditions (validation, not-found, etc.), `throw ApiException(statusCode, code, message)` rather than manually building an error response; StatusPages converts it to the standard envelope. See `apps/backend/README.md`'s "Error Handling & Request Logging" section. Define the `code`/`message` pair as constants in `src/constants/Constants.kt` (`BackendConstants.Errors`) rather than inlining the literals at the `throw` site — even a currently single-use error code, since these are part of the API's error contract and other endpoints may end up needing the same one.
 5. Wire the repository, service, and routes in `apps/backend/src/Application.kt`
 6. Test with `docker-compose up --build backend`, or faster: `pnpm run dev:backend` (or `mvn compile exec:java` from `apps/backend/`) against `docker-compose up -d postgres` — hot-reloads on `mvn compile`, no restart needed. See `apps/backend/README.md`'s "Locally, with hot reload" section.
 

@@ -26,4 +26,11 @@ object BackendConstants {
     object DatabaseDefaults {
         const val DRIVER_CLASS = "org.postgresql.Driver"
     }
+
+    object Errors {
+        const val MISSING_SERVER_ID_CODE = "missing_server_id"
+        const val MISSING_SERVER_ID_MESSAGE = "Missing server ID"
+        const val SERVER_NOT_FOUND_CODE = "server_not_found"
+        const val SERVER_NOT_FOUND_MESSAGE = "Server not found"
+    }
 }
