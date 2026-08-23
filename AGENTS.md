@@ -55,7 +55,9 @@ See [README.md](README.md) for the full quickstart, service list, and project st
 
 ## Environment Variables
 
-`docker-compose.yml` sources its configurable values from environment variables, each with a `:-default` fallback matching the original hardcoded values — so `docker-compose up --build` still works with zero setup even if no `.env` file exists. The variables: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`. `.env.example` documents all of them; `.env.production.example` is the same set with a placeholder password that must be replaced.
+`docker-compose.yml` sources its configurable values from environment variables, each with a `:-default` fallback matching the original hardcoded values — so `docker-compose up --build` still works with zero setup even if no `.env` file exists. The variables: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `SERVICE_TOKEN_DISCORD_BOT`, `COOKIE_SECURE`, `CORS_ALLOWED_ORIGINS`. `.env.example` documents all of them; `.env.production.example` is the same set with placeholder secrets that must be replaced.
+
+`SERVICE_TOKEN_DISCORD_BOT` is read by **two** services (`backend` and `discord-bot`) and they must see the same value — the backend registers its hash, the bot presents the raw token. Changing it in one place only breaks guild syncing with a 401.
 
 - `.env` is auto-loaded by docker-compose from the project root (local dev, optional).
 - `.env.production` is **not** auto-loaded — it must be passed explicitly with `docker-compose --env-file .env.production up -d --build`. That's intentional: a production run should never happen by accident.
@@ -65,9 +67,11 @@ See [README.md](README.md) for the full quickstart, service list, and project st
 
 ## API Communication
 
-- Frontend → Backend: Use relative path `/api/...` (proxied via nginx)
-- Bot → Backend: Use `http://backend:8080/...` (Docker network DNS)
+- Frontend → Backend: Use relative path `/api/...` (proxied via nginx). Same-origin, so the session cookie is sent automatically — no `Authorization` header and no CORS config needed.
+- Bot → Backend: Use `http://backend:8080/...` (Docker network DNS), with `Authorization: Bearer ${SERVICE_TOKEN_DISCORD_BOT}`. Being on the Docker network is no longer sufficient on its own.
 - External → Backend: Use `http://localhost:8080/...`
+
+Backend routes are authenticated by default — see [`apps/backend/AGENTS.md`](apps/backend/AGENTS.md#authentication-conventions) for which provider to wrap a new route in, and the rules around login responses that are easy to break by accident. `/api/health` is deliberately public because container healthchecks poll it.
 
 ## Testing Commands
 

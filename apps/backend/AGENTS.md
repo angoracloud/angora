@@ -16,6 +16,7 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - `src/routes/` — KTor route definitions (API layer: handles HTTP request/response and calls service layer only)
 - `src/service/` — Business logic and orchestration (Service layer: calls repository layer for data operations)
 - `src/repository/` — Exposed ORM data access (Repository layer: handles database transactions and queries)
+- `src/auth/` — Principals (`UserPrincipal`, `ServicePrincipal`), the session cookie type (`AngoraSession`), and the `requireUser()` route helper. See Authentication conventions below before changing anything here
 - `src/dto/` — Request/response DTOs and models, including the shared `ApiError`/`ApiErrorEnvelope` in `src/dto/ErrorDto.kt`
 - `src/error/ApiException.kt` — the shared exception type StatusPages maps to the error envelope; throw this from routes/services for expected 4xx/5xx conditions, see `apps/backend/README.md`'s "Error Handling & Request Logging" section
 - `src/Application.kt` — KTor plugins, dependency wiring, and route mounting
@@ -33,7 +34,28 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - Don't bypass the N-tier architecture (routes must only call services, services must call repositories for DB changes)
 - Don't change the port without updating both `application.yaml`'s `ktor.deployment.port` and `docker-compose.yml` — it's not hardcoded in `Application.kt` anymore
 - Don't remove Exposed ORM unless explicitly requested
+- Don't move `COPY src ./src` above the `dependency:go-offline` step in the `Dockerfile`. The split is what keeps Maven dependencies in a layer cached against `pom.xml` alone; collapsing it makes every source edit re-download the entire dependency tree from Maven Central, turning a seconds-long rebuild into a multi-minute one. For the same reason, don't add `-o` to the `package` step — `go-offline` doesn't fetch every plugin dependency, and offline mode would turn a short top-up download into a hard failure.
 - If `maven-shade-plugin`'s config changes, keep the `ServicesResourceTransformer` — without it, only one of the two `META-INF/services/io.ktor.server.config.ConfigLoader` providers (HOCON's, from `ktor-server-core-jvm`, and YAML's, from `ktor-server-config-yaml-jvm`) survives shading into `target/backend.jar`, silently breaking config loading in the packaged jar (though not under `mvn exec:java`, which masks it)
+
+## Authentication conventions
+
+Full behavior is documented in [`README.md`](README.md#authentication); these are the rules that are easy to break by accident.
+
+1. **Every failed login returns the identical response** — `401` / `invalid_credentials` — for an unknown email, a wrong password, and a locked, suspended, invited, or deactivated account alike. Do not add a more "helpful" message such as "no account for that email" or "your account is suspended" to any of these paths: the uniformity is what stops the endpoint being used to discover which addresses have accounts. Log the real reason instead (`AuthServiceImpl` already does), where the `requestId` MDC makes it traceable.
+
+2. **Keep the dummy hash on the unknown-email path.** `PasswordService.dummyVerify()` exists so that a login for a nonexistent account costs about the same as one with a wrong password. Deleting it as dead code turns response latency into the same enumeration oracle that rule 1 closes.
+
+3. **Two hashing schemes, not one.** Passwords use Argon2id (slow, deliberately). Session and service tokens use SHA-256, because they are 256-bit random values with nothing to brute-force and are verified on every single request. Do not "improve consistency" by moving tokens to Argon2 — that taxes the whole API for no security gain — and never move passwords to SHA-256.
+
+4. **New routes are authenticated unless there's a reason.** Wrap them in `authenticate(BackendConstants.Auth.USER_PROVIDER)` for human callers or `SERVICE_PROVIDER` for machine ones, and reach the caller with `call.requireUser()`. `/api/health` is deliberately public because container healthchecks poll it; don't gate it.
+
+5. **The session cookie carries an opaque token and nothing else.** Don't add the user id, role, or permissions to `AngoraSession` as an optimization — the `sessions` table being the single authority is what makes logout and suspension take effect on the next request. `AngoraSession` must stay `@Serializable`; Ktor's cookie serializer resolves a kotlinx serializer at install time and the app fails to start without one.
+
+6. **Don't reintroduce `anyHost()` in the CORS config.** Ktor rejects a wildcard origin combined with `allowCredentials = true`, and the cookie makes every request credentialed. Origins come from `CORS_ALLOWED_ORIGINS` and must be exact.
+
+7. **Keep the shade plugin's `<filters>` block, and keep it scoped to `org.bouncycastle:*`.** Bouncy Castle ships a signed jar; shading invalidates the signature and the packaged jar then refuses to load entirely. Don't widen the filter to `*:*` — the narrow scope is what makes a *future* signed dependency fail the build loudly instead of being silently stripped, which matters because stripping is only safe for libraries used through their plain classes (as BC is here) and breaks anything registered as a JCE provider. This failure is invisible to `mvn test`; see the README's Troubleshooting section.
+
+8. **Adding a signed or crypto dependency**: check the license first (the root AGENTS.md's Licensing section). `de.mkammerer:argon2-jvm` is LGPL-3.0 and was rejected for that reason; Bouncy Castle's `bcprov-jdk18on` is MIT. Note `bc-kotlin` is not a substitute — it wraps PKI/certificate APIs, not crypto primitives, and isn't published to Maven Central.
 
 ## Common tasks
 

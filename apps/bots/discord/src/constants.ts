@@ -5,6 +5,8 @@ export const BOT_CONFIG = {
   TOKEN_PLACEHOLDER: 'YOUR_DISCORD_BOT_TOKEN',
   SYNC_INTERVAL_MS: 60000,
   REST_API_VERSION: '10',
+  /** Env var holding the bot's service token for authenticating to the backend. */
+  SERVICE_TOKEN_ENV: 'SERVICE_TOKEN_DISCORD_BOT',
 } as const
 
 export const BOT_ROUTES = {
