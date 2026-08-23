@@ -34,6 +34,12 @@ interface AuthService {
     fun logoutAll(userId: UUID)
 
     fun findUser(userId: UUID): AuthUserResponse?
+
+    /**
+     * Deletes session rows that are already past their expiry. Housekeeping only —
+     * an expired session is refused at lookup regardless. Returns the number removed.
+     */
+    fun purgeExpiredSessions(): Int
 }
 
 class AuthServiceImpl(
@@ -121,6 +127,10 @@ class AuthServiceImpl(
 
     override fun findUser(userId: UUID): AuthUserResponse? {
         return userRepository.findById(userId)?.toResponse()
+    }
+
+    override fun purgeExpiredSessions(): Int {
+        return sessionRepository.deleteExpired(Instant.now())
     }
 
     /**

@@ -18,8 +18,10 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - `src/repository/` — Exposed ORM data access (Repository layer: handles database transactions and queries)
 - `src/auth/` — Principals (`UserPrincipal`, `ServicePrincipal`), the session cookie type (`AngoraSession`), and the `requireUser()` route helper. See Authentication conventions below before changing anything here
 - `src/dto/` — Request/response DTOs and models, including the shared `ApiError`/`ApiErrorEnvelope` in `src/dto/ErrorDto.kt`
-- `src/error/ApiException.kt` — the shared exception type StatusPages maps to the error envelope; throw this from routes/services for expected 4xx/5xx conditions, see `apps/backend/README.md`'s "Error Handling & Request Logging" section
-- `src/Application.kt` — KTor plugins, dependency wiring, and route mounting
+- `src/error/` — `ApiException.kt`, the shared exception type StatusPages maps to the error envelope (throw it from routes/services for expected 4xx/5xx conditions), and `ErrorResponses.kt`, the `call.respondError(status, code, message)` helper every error response goes through. See `apps/backend/README.md`'s "Error Handling & Request Logging" section
+- `src/plugins/` — one `Application.configureX()` per concern: `Monitoring.kt` (CallId/CallLogging), `ErrorHandling.kt` (StatusPages), `Http.kt` (ContentNegotiation/CORS), `Security.kt` (Sessions/Authentication/RateLimit). Add a new file here rather than growing `Application.kt` back into a single long function
+- `src/Dependencies.kt` — builds repositories and services for one `Database`. Exposes **only services**: application setup and routes must not reach a repository directly
+- `src/Application.kt` — the module entry point: connect the database, build `Dependencies`, call the `configureX()` functions, mount routes. Keep it a readable outline; the detail belongs in `src/plugins/`
 - `src/Tables.kt` — Exposed `Table`/`UUIDTable` definitions, kept in sync with `src/main/resources/db/migration/`
 - `src/main/resources/application.yaml` — Ktor deployment config and database connection settings
 - `src/main/resources/logback.xml` — Logback config; keep the `%X{requestId}` MDC pattern so every log line stays traceable to a request

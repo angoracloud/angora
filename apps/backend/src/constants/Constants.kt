@@ -132,5 +132,11 @@ object BackendConstants {
 
         const val RATE_LIMITED_CODE = "rate_limited"
         const val RATE_LIMITED_MESSAGE = "Too many requests, please try again later"
+
+        const val NOT_FOUND_CODE = "not_found"
+        const val NOT_FOUND_MESSAGE = "The requested resource was not found"
+
+        const val INTERNAL_ERROR_CODE = "internal_error"
+        const val INTERNAL_ERROR_MESSAGE = "An unexpected error occurred"
     }
 }
