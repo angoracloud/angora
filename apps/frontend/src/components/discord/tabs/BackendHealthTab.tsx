@@ -1,9 +1,8 @@
-import { useOutletContext } from 'react-router'
-import type { DiscordOutletContext } from '../../../types'
+import { useDiscordInviteQuery } from '../../../hooks/discordQueries'
 import { Card } from '../../ui'
 
 export function BackendHealthTab() {
-  const { inviteData } = useOutletContext<DiscordOutletContext>()
+  const { data: inviteData } = useDiscordInviteQuery()
 
   return (
     <Card>

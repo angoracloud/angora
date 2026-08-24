@@ -23,11 +23,3 @@ export interface ToastNotification {
   title: string
   message: string
 }
-
-export interface DiscordOutletContext {
-  servers: DiscordServer[]
-  inviteData: InviteData | null
-  loading: boolean
-  error: string | null
-  leaveServer: (id: string, serverName?: string) => Promise<void>
-}

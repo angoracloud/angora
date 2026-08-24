@@ -53,14 +53,16 @@ src/
 │   ├── settings/          # SettingsPage (placeholder — sidebar switches to its admin/settings nav here)
 │   └── NotFoundPage.tsx   # Catch-all 404, still rendered inside AppShell
 ├── context/              # React Context definitions & providers (ToastProvider)
-├── hooks/                # Custom React hooks (useDiscordServers, useToast)
+├── hooks/                # Custom React hooks (discordQueries — TanStack Query wrappers, useToast)
 ├── services/             # API client layer (discordService) calling backend endpoints
+├── router.tsx            # TanStack Router route tree (createRootRoute/createRoute/createRouter),
+│                          #   AppShell as the root route's component
 ├── routes.ts             # Single source of truth for route paths (ROUTES), consumed by
-│                          #   both <Route path> definitions and every Link/useNavigate call
+│                          #   both router.tsx and every Link/useNavigate call
 ├── constants.ts          # API endpoints, timing config, and toast message templates
 ├── types/                # TypeScript interfaces (DiscordServer, ToastNotification, etc.)
-├── App.tsx               # react-router route tree (AppShell as the layout route) & ToastProvider
-├── main.tsx              # React DOM root entrypoint, wraps <App/> in <BrowserRouter>
+├── App.tsx               # QueryClientProvider + ToastProvider + <RouterProvider router={router}/>
+├── main.tsx              # React DOM root entrypoint
 ├── index.css             # Global design tokens (color/space/radius/type/shadow) + reset + base
 └── index.html            # SPA root HTML template
 ```
@@ -71,13 +73,14 @@ src/
 - **CSS Modules, one pair per component**: every component in `components/ui/` and `components/layout/` ships as `Name.tsx` + `Name.module.css` (e.g. `Avatar.tsx`/`Avatar.module.css`). Import styles as `import styles from './Name.module.css'` and reference classes via `styles.foo` — never a hardcoded class-name string, since CSS Modules hash/scope each class per file. The one exception is a component that intentionally reuses another component's visual style without rendering that component directly (e.g. `DiscordPage`'s `NavLink` tabs are styled like `TabButton` without being one) — those import the other component's `.module.css` directly (`import tabButtonStyles from '../ui/TabButton.module.css'`) rather than duplicating the CSS.
 - **No bespoke CSS per screen**: page components (`home/`, `discord/`) compose `components/ui/` primitives and use inline `style={{...}}` only for one-off layout glue (flex/grid wrappers) referencing the same CSS custom properties — they don't define their own CSS files.
 - **Fonts**: Hanken Grotesk (UI text) + JetBrains Mono (ids, counts, code), loaded via Google Fonts `<link>` tags in `index.html`.
+- **React Compiler**: build-time auto-memoization (`babel-plugin-react-compiler`, wired via `@vitejs/plugin-react`'s `reactCompilerPreset()` + `@rolldown/plugin-babel` in `vite.config.ts`) — components don't hand-write `useMemo`/`useCallback`/`React.memo` for routine cases. Runs in the default, conservative `compilationMode: 'infer'`, so not every component gets compiled (that's expected — the compiler is purely additive, an uncompiled component just behaves like normal React); see `apps/frontend/AGENTS.md` for a known upstream limitation with the more aggressive `'all'` mode.
 
 ### Features & Systems
 
-- **Routing (`react-router`, `routes.ts`)**: declarative `<Routes>/<Route>` tree in `App.tsx`, with `AppShell` as the layout route (`Sidebar` + `TopBar` + `<Outlet/>`). Each leaf route sets a `handle={{ title }}` (or `handle={{ crumbs }}`) that `TopBar` reads via `useMatches()` — no prop-drilled page titles. `DiscordPage`'s three tabs are nested routes; the tab components read shared data via `useOutletContext<DiscordOutletContext>()` instead of props.
+- **Routing (`@tanstack/react-router`, `router.tsx`, `routes.ts`)**: a code-based route tree (not file-based/codegen), with `AppShell` as the root route's component (`Sidebar` + `TopBar` + `<Outlet/>`). Each leaf route sets `staticData: { title }` (or `{ crumbs }`) that `TopBar` reads via `useMatches()` — no prop-drilled page titles. `DiscordPage`'s tabs are nested routes; each tab reads its own data directly via the TanStack Query hooks below (no outlet-context prop-threading needed — same query key means shared cache, not a duplicate request).
+- **Data fetching (`@tanstack/react-query`, `hooks/discordQueries.ts`)**: `useDiscordServersQuery`/`useDiscordInviteQuery`/`useLeaveServerMutation` wrap the Discord API calls with automatic polling (`refetchInterval`), window-focus refetching, loading/error state, and cache dedup across every component that calls them (including the sidebar's live server-count badge) — replacing what used to be a hand-rolled `setInterval` + focus-listener + `isMounted`-guard hook.
 - **Centralized Constants (`constants.ts`)**: backend endpoints (`API_ENDPOINTS`), timing intervals (`TIMING_CONFIG`), and toast notifications (`TOAST_MESSAGES`) are declared once as type-safe constants. Route paths live separately in `routes.ts` (`ROUTES`), since they're consumed by both the route tree and navigation call sites.
 - **Contextual Toast System**: A React Context (`ToastProvider` + `useToast`) provides auto-dismissing feedback notifications for user actions (bot leave, connection failures) without intercepting generic window errors.
-- **Passive Background Auto-Sync**: `useDiscordServers` polls server states silently in the background and on window focus, keeping server member counts and connection statuses current without disruptive full-page spinners.
 
 ## Notes
 

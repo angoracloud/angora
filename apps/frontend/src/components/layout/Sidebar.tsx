@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router'
+import { Link } from '@tanstack/react-router'
 import { Avatar } from '../ui/Avatar'
 import { MAIN_NAV, SETTINGS_NAV } from './navConfig'
 import styles from './Sidebar.module.css'
@@ -28,20 +28,19 @@ export function Sidebar({ mode = 'main', counts, open = false }: SidebarProps) {
           {section.items.map((item) => {
             const count = item.countKey ? counts?.[item.countKey] : undefined
             return (
-              <NavLink
+              <Link
                 key={item.path}
                 to={item.path}
-                end={item.end}
-                className={({ isActive }) =>
-                  `${styles.nav}${isActive ? ` ${styles.active}` : ''}`
-                }
+                activeOptions={{ exact: item.end }}
+                className={styles.nav}
+                activeProps={{ className: styles.active }}
               >
                 <item.icon size={18} />
                 {item.label}
                 {count !== undefined && (
                   <span className={styles.count}>{count}</span>
                 )}
-              </NavLink>
+              </Link>
             )
           })}
         </div>

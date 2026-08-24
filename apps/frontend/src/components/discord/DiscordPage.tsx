@@ -1,17 +1,16 @@
-import { NavLink, Outlet } from 'react-router'
-import { useDiscordServers } from '../../hooks/useDiscordServers'
+import { Link, Outlet } from '@tanstack/react-router'
+import {
+  useDiscordInviteQuery,
+  useDiscordServersQuery,
+} from '../../hooks/discordQueries'
 import { DISCORD_CONFIG } from '../../constants'
 import { ROUTES } from '../../routes'
 import { CountBadge, LinkButton } from '../ui'
 import tabButtonStyles from '../ui/TabButton.module.css'
 
-function tabClassName({ isActive }: { isActive: boolean }): string {
-  return `${tabButtonStyles.tabBtn}${isActive ? ` ${tabButtonStyles.active}` : ''}`
-}
-
 export function DiscordPage() {
-  const { servers, inviteData, loading, error, leaveServer } =
-    useDiscordServers()
+  const { data: servers } = useDiscordServersQuery()
+  const { data: inviteData } = useDiscordInviteQuery()
   const inviteUrl = inviteData?.inviteUrl || DISCORD_CONFIG.FALLBACK_INVITE_URL
 
   return (
@@ -48,23 +47,35 @@ export function DiscordPage() {
           marginBottom: 'var(--space-8)',
         }}
       >
-        <NavLink to={ROUTES.DISCORD.SERVERS} className={tabClassName}>
+        <Link
+          to={ROUTES.DISCORD.SERVERS}
+          className={tabButtonStyles.tabBtn}
+          activeProps={{ className: tabButtonStyles.active }}
+        >
           {({ isActive }) => (
             <>
               Connected Servers{' '}
-              <CountBadge count={servers.length} active={isActive} />
+              <CountBadge count={servers?.length ?? 0} active={isActive} />
             </>
           )}
-        </NavLink>
-        <NavLink to={ROUTES.DISCORD.COMMANDS} className={tabClassName}>
+        </Link>
+        <Link
+          to={ROUTES.DISCORD.COMMANDS}
+          className={tabButtonStyles.tabBtn}
+          activeProps={{ className: tabButtonStyles.active }}
+        >
           Slash Commands
-        </NavLink>
-        <NavLink to={ROUTES.DISCORD.HEALTH} className={tabClassName}>
+        </Link>
+        <Link
+          to={ROUTES.DISCORD.HEALTH}
+          className={tabButtonStyles.tabBtn}
+          activeProps={{ className: tabButtonStyles.active }}
+        >
           Backend Health
-        </NavLink>
+        </Link>
       </nav>
 
-      <Outlet context={{ servers, inviteData, loading, error, leaveServer }} />
+      <Outlet />
     </div>
   )
 }

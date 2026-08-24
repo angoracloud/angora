@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import styles from './Avatar.module.css'
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg'
@@ -37,7 +36,7 @@ export interface AvatarProps {
 }
 
 export function Avatar({ name, size = 'md', color, imageUrl }: AvatarProps) {
-  const resolvedColor = useMemo(() => color ?? hashColor(name), [name, color])
+  const resolvedColor = color ?? hashColor(name)
 
   if (imageUrl) {
     return (

@@ -1,17 +1,51 @@
-import { useOutletContext } from 'react-router'
-import { DISCORD_CONFIG } from '../../../constants'
-import type { DiscordOutletContext } from '../../../types'
+import { DISCORD_CONFIG, TOAST_MESSAGES } from '../../../constants'
+import {
+  useDiscordInviteQuery,
+  useDiscordServersQuery,
+  useLeaveServerMutation,
+} from '../../../hooks/discordQueries'
+import { useToast } from '../../../hooks/useToast'
 import { Card, LinkButton, Pill } from '../../ui'
 import { ServerCard } from './ServerCard'
 
 export function ConnectedServersTab() {
-  const { servers, inviteData, loading, error, leaveServer } =
-    useOutletContext<DiscordOutletContext>()
+  const { data: servers = [], isLoading, error } = useDiscordServersQuery()
+  const { data: inviteData } = useDiscordInviteQuery()
+  const leaveMutation = useLeaveServerMutation()
+  const { addToast } = useToast()
   const inviteUrl = inviteData?.inviteUrl || DISCORD_CONFIG.FALLBACK_INVITE_URL
+
+  function handleLeave(id: string, serverName?: string) {
+    if (
+      !confirm(
+        `Are you sure you want to disconnect ${serverName || 'this Discord server'}?`,
+      )
+    ) {
+      return
+    }
+
+    leaveMutation.mutate(
+      { id, serverName },
+      {
+        onSuccess: () => {
+          const toastData = TOAST_MESSAGES.BOT_LEFT_SERVER(serverName)
+          addToast('info', toastData.title, toastData.message)
+        },
+        onError: (err) => {
+          const message = err instanceof Error ? err.message : 'Network error'
+          const toastData = TOAST_MESSAGES.SERVER_DISCONNECT_FAILED(
+            serverName,
+            message,
+          )
+          addToast('error', toastData.title, toastData.message)
+        },
+      },
+    )
+  }
 
   return (
     <div>
-      {loading && (
+      {isLoading && (
         <p
           style={{
             color: 'var(--color-text-secondary)',
@@ -29,11 +63,11 @@ export function ConnectedServersTab() {
             padding: 'var(--space-6) 0',
           }}
         >
-          Error loading servers: {error}
+          Error loading servers: {error.message}
         </p>
       )}
 
-      {!loading && servers.length === 0 && (
+      {!isLoading && servers.length === 0 && (
         <Card>
           <div style={{ textAlign: 'center', padding: 'var(--space-9) 0' }}>
             <h3>No Discord Servers Connected</h3>
@@ -57,7 +91,7 @@ export function ConnectedServersTab() {
         </Card>
       )}
 
-      {!loading && servers.length > 0 && (
+      {!isLoading && servers.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -98,7 +132,7 @@ export function ConnectedServersTab() {
             key={server.id}
             server={server}
             inviteUrl={inviteData?.inviteUrl}
-            onLeave={leaveServer}
+            onLeave={handleLeave}
           />
         ))}
       </div>

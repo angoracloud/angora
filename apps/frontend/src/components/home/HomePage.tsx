@@ -1,4 +1,4 @@
-import { Link } from 'react-router'
+import { Link } from '@tanstack/react-router'
 import { Button, Card, ChannelIcon, Pill } from '../ui'
 import btnStyles from '../ui/Button.module.css'
 import { ROUTES } from '../../routes'

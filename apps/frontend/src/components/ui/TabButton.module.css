@@ -20,9 +20,9 @@
   color: var(--color-accent);
 }
 
-/* NavLink renders <a>, and the global `a:hover` rule in index.css would
-   otherwise win on specificity and recolor the text on hover even though
-   nothing else about a tab changes on hover. */
+/* The router's Link renders <a>, and the global `a:hover` rule in index.css
+   would otherwise win on specificity and recolor the text on hover even
+   though nothing else about a tab changes on hover. */
 .tabBtn:hover {
   color: var(--color-text-secondary);
 }

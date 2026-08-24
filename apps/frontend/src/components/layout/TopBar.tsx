@@ -1,24 +1,10 @@
 import { Bell, Menu, Settings } from 'lucide-react'
-import { Link, useMatches, useNavigate } from 'react-router'
+import { Link, useMatches, useNavigate } from '@tanstack/react-router'
 import { Avatar } from '../ui/Avatar'
 import { IconButton } from '../ui/IconButton'
 import { SearchInput } from '../ui/SearchInput'
 import { ROUTES } from '../../routes'
 import styles from './TopBar.module.css'
-
-export interface RouteCrumb {
-  label: string
-  path?: string
-}
-
-export interface RouteHandle {
-  title?: string
-  crumbs?: RouteCrumb[]
-}
-
-function isRouteHandle(handle: unknown): handle is RouteHandle {
-  return typeof handle === 'object' && handle !== null
-}
 
 export interface TopBarProps {
   onMenuClick?: () => void
@@ -28,10 +14,10 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const navigate = useNavigate()
   const matches = useMatches()
 
-  const handle = [...matches]
+  const match = [...matches]
     .reverse()
-    .map((match) => match.handle)
-    .find(isRouteHandle)
+    .find((m) => m.staticData?.title || m.staticData?.crumbs)
+  const { title, crumbs } = match?.staticData ?? {}
 
   return (
     <div className={styles.top}>
@@ -42,9 +28,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         className={styles.menuButton}
       />
 
-      {handle?.crumbs ? (
+      {crumbs ? (
         <h1>
-          {handle.crumbs.map((crumb, i) => (
+          {crumbs.map((crumb, i) => (
             <span key={crumb.label}>
               {crumb.path ? (
                 <Link to={crumb.path} className={styles.crumb}>
@@ -53,14 +39,14 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               ) : (
                 <span className={styles.crumbActive}>{crumb.label}</span>
               )}
-              {i < handle.crumbs!.length - 1 && (
+              {i < crumbs.length - 1 && (
                 <span className={styles.crumbSep}>/</span>
               )}
             </span>
           ))}
         </h1>
       ) : (
-        <h1>{handle?.title}</h1>
+        <h1>{title}</h1>
       )}
 
       <div className={styles.searchSlot}>
@@ -72,7 +58,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         <IconButton
           icon={Settings}
           label="Settings"
-          onClick={() => navigate(ROUTES.SETTINGS)}
+          onClick={() => navigate({ to: ROUTES.SETTINGS })}
         />
         <Avatar name="Angora Admin" size="md" />
       </div>
