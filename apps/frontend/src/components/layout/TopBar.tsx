@@ -17,7 +17,10 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const match = [...matches]
     .reverse()
     .find((m) => m.staticData?.title || m.staticData?.crumbs)
-  const { title, crumbs } = match?.staticData ?? {}
+  // No match carries staticData for the not-found fallback (it isn't a
+  // matched leaf route), so fall back to a title consistent with
+  // NotFoundPage's own heading instead of rendering an empty <h1>.
+  const { title = 'Page not found', crumbs } = match?.staticData ?? {}
 
   return (
     <div className={styles.top}>
