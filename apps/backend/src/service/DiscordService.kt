@@ -41,7 +41,11 @@ class DiscordServiceImpl(
 
         notifyBotToLeaveGuild(targetGuildId)
 
-        return DeleteServerResponse(status = "updated", guildId = targetGuildId, botJoined = false)
+        return DeleteServerResponse(
+            status = BackendConstants.Discord.ServerStatus.UPDATED,
+            guildId = targetGuildId,
+            botJoined = false
+        )
     }
 
     override fun deleteServer(idOrGuildId: String): DeleteServerResponse? {
@@ -49,7 +53,11 @@ class DiscordServiceImpl(
 
         notifyBotToLeaveGuild(targetGuildId)
 
-        return DeleteServerResponse(status = "deleted", guildId = targetGuildId, botJoined = false)
+        return DeleteServerResponse(
+            status = BackendConstants.Discord.ServerStatus.DELETED,
+            guildId = targetGuildId,
+            botJoined = false
+        )
     }
 
     override fun syncGuild(req: SyncGuildRequest) {
