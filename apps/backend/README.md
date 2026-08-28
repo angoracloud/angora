@@ -75,6 +75,8 @@ The backend follows a clean N-Tier architecture with strict layer separation:
 2. **Service Layer (`src/service/`)**: Contains business logic, validation, third-party notifications (e.g. Discord bot notifications), and coordinates operations by calling the repository layer.
 3. **Repository Layer (`src/repository/`)**: Encapsulates Exposed ORM database transactions, CRUD operations, SQL queries, and mapping database rows to DTOs/models.
 4. **DTO / Data Layer (`src/dto/`, `src/Tables.kt`)**: Defines data transfer objects for API contracts and Exposed table schema definitions.
+5. **Validation Layer (`src/validation/`)**: Encapsulates DTO validation rules and integration with Ktor's `RequestValidation` plugin. Reusable validation helpers live in `ValidationRules.kt`.
+6. **Constants (`src/constants/Constants.kt`)**: Centralized object `BackendConstants` containing route paths, default settings, error codes/messages, and validation limits/patterns/messages. String literals, regexes, and numerical bounds are defined here rather than hardcoded in application logic.
 
 Dependencies are wired in `src/Application.kt`.
 
@@ -109,6 +111,8 @@ Every 4xx/5xx response returns the same JSON envelope:
 This is produced by `StatusPages` (installed in `src/Application.kt`), which handles three cases:
 
 - **`ApiException`** (`src/error/ApiException.kt`) — the convention for expected error conditions. Routes/services throw `ApiException(statusCode, code, message)`; StatusPages catches it and builds the envelope with that status/code/message. This is how every new endpoint (auth, tickets, channels, ...) should signal a 4xx, instead of manually calling `call.respond(status, someAdHocBody)`.
+- **`RequestValidationException`** — thrown by Ktor's `RequestValidation` plugin when incoming DTO payload rules fail. StatusPages catches it and returns `400 Bad Request` with `code: "validation_error"` and a combined reason message.
+- **`BadRequestException` / `SerializationException`** — thrown by Ktor/kotlinx.serialization when request JSON is malformed or invalid. StatusPages catches it and returns `400 Bad Request` with `code: "bad_request"` or `code: "invalid_json"` rather than falling through to a 500 error.
 - **Any other `Throwable`** — logged server-side, mapped to a generic `500` with `code: "internal_error"` so unexpected exceptions never leak a stack trace to the client.
 - **Unmatched routes** — Ktor's default 404 is replaced with the same envelope (`code: "not_found"`) instead of a plain-text response.
 

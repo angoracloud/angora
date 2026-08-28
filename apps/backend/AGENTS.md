@@ -17,6 +17,8 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - `src/service/` — Business logic and orchestration (Service layer: calls repository layer for data operations)
 - `src/repository/` — Exposed ORM data access (Repository layer: handles database transactions and queries)
 - `src/dto/` — Request/response DTOs and models, including the shared `ApiError`/`ApiErrorEnvelope` in `src/dto/ErrorDto.kt`
+- `src/validation/` — Request validation rules, DTO validators, and Ktor `RequestValidation` plugin configuration
+- `src/constants/Constants.kt` — Backend constants (`BackendConstants`): route paths, defaults, error codes/messages, and validation limits/patterns/messages
 - `src/error/ApiException.kt` — the shared exception type StatusPages maps to the error envelope; throw this from routes/services for expected 4xx/5xx conditions, see `apps/backend/README.md`'s "Error Handling & Request Logging" section
 - `src/Application.kt` — KTor plugins, dependency wiring, and route mounting
 - `src/Tables.kt` — Exposed `Table`/`UUIDTable` definitions, kept in sync with `src/main/resources/db/migration/`
@@ -34,6 +36,7 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - Don't change the port without updating both `application.yaml`'s `ktor.deployment.port` and `docker-compose.yml` — it's not hardcoded in `Application.kt` anymore
 - Don't remove Exposed ORM unless explicitly requested
 - If `maven-shade-plugin`'s config changes, keep the `ServicesResourceTransformer` — without it, only one of the two `META-INF/services/io.ktor.server.config.ConfigLoader` providers (HOCON's, from `ktor-server-core-jvm`, and YAML's, from `ktor-server-config-yaml-jvm`) survives shading into `target/backend.jar`, silently breaking config loading in the packaged jar (though not under `mvn exec:java`, which masks it)
+- Don't hardcode string literals, regexes, numerical limits, or error messages in validation/route logic — all constants belong in `src/constants/Constants.kt` (`BackendConstants`)
 
 ## Common tasks
 
@@ -44,7 +47,15 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 3. Define service interface and business logic implementation in `apps/backend/src/service/`
 4. Add the route handler in `apps/backend/src/routes/` calling the service — for expected error conditions (validation, not-found, etc.), `throw ApiException(statusCode, code, message)` rather than manually building an error response; StatusPages converts it to the standard envelope. See `apps/backend/README.md`'s "Error Handling & Request Logging" section. Define the `code`/`message` pair as constants in `src/constants/Constants.kt` (`BackendConstants.Errors`) rather than inlining the literals at the `throw` site — even a currently single-use error code, since these are part of the API's error contract and other endpoints may end up needing the same one.
 5. Wire the repository, service, and routes in `apps/backend/src/Application.kt`
-6. Test with `docker-compose up --build backend`, or faster: `pnpm run dev:backend` (or `mvn compile exec:java` from `apps/backend/`) against `docker-compose up -d postgres` — hot-reloads on `mvn compile`, no restart needed. See `apps/backend/README.md`'s "Locally, with hot reload" section.
+6. If the endpoint accepts a request body DTO, add validation (see "Add request validation for a new DTO" below).
+7. Test with `docker-compose up --build backend`, or faster: `pnpm run dev:backend` (or `mvn compile exec:java` from `apps/backend/`) against `docker-compose up -d postgres` — hot-reloads on `mvn compile`, no restart needed. See `apps/backend/README.md`'s "Locally, with hot reload" section.
+
+### Add request validation for a new DTO
+
+1. Define all validation constraints, field names, length limits, regex patterns, and message formatters in `src/constants/Constants.kt` under `BackendConstants.Validation` (and `BackendConstants.Errors` if new error codes are needed). **Never hardcode string literals, regex patterns, or numerical limits directly in validator functions.**
+2. Implement a validator function in `src/validation/` using the reusable helpers in `ValidationRules` (`requireNonBlank`, `requireMaxLength`, `requireMinLength`, `requireEmail`, `requireUuid`, `requirePositiveOrZero`, `requireRange`, `requireUrl`).
+3. Register the validator in `RequestValidationConfig.configureRequestValidation()` in `src/validation/RequestValidation.kt`.
+4. Write unit tests for the validator in `test/kotlin/validation/` and integration tests for route error mapping in `test/kotlin/routes/`.
 
 
 ### Add a new migration

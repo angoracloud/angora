@@ -10,18 +10,23 @@ import cloud.angora.routes.discordRoutes
 import cloud.angora.routes.healthRoutes
 import cloud.angora.service.DiscordServiceImpl
 import cloud.angora.service.HealthServiceImpl
+import cloud.angora.validation.configureRequestValidation
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.CannotTransformContentToTypeException
 import io.ktor.server.plugins.callid.*
 import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.plugins.requestvalidation.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -67,17 +72,82 @@ fun Application.module() {
                 ApiErrorEnvelope(ApiError(cause.code, cause.message, call.callId ?: "unknown"))
             )
         }
+        exception<RequestValidationException> { call, cause ->
+            val message = if (cause.reasons.isNotEmpty()) {
+                cause.reasons.joinToString("; ")
+            } else {
+                BackendConstants.Errors.VALIDATION_ERROR_MESSAGE
+            }
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ApiErrorEnvelope(
+                    ApiError(
+                        BackendConstants.Errors.VALIDATION_ERROR_CODE,
+                        message,
+                        call.callId ?: "unknown"
+                    )
+                )
+            )
+        }
+        exception<BadRequestException> { call, cause ->
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ApiErrorEnvelope(
+                    ApiError(
+                        BackendConstants.Errors.BAD_REQUEST_CODE,
+                        cause.message?.substringBefore("\n") ?: BackendConstants.Errors.BAD_REQUEST_MESSAGE,
+                        call.callId ?: "unknown"
+                    )
+                )
+            )
+        }
+        exception<SerializationException> { call, cause ->
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ApiErrorEnvelope(
+                    ApiError(
+                        BackendConstants.Errors.INVALID_JSON_CODE,
+                        BackendConstants.Errors.INVALID_JSON_MESSAGE,
+                        call.callId ?: "unknown"
+                    )
+                )
+            )
+        }
+        exception<CannotTransformContentToTypeException> { call, cause ->
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ApiErrorEnvelope(
+                    ApiError(
+                        BackendConstants.Errors.INVALID_JSON_CODE,
+                        BackendConstants.Errors.INVALID_JSON_MESSAGE,
+                        call.callId ?: "unknown"
+                    )
+                )
+            )
+        }
         exception<Throwable> { call, cause ->
             call.application.log.error("Unhandled exception processing ${call.request.uri}", cause)
             call.respond(
                 HttpStatusCode.InternalServerError,
-                ApiErrorEnvelope(ApiError("internal_error", "An unexpected error occurred", call.callId ?: "unknown"))
+                ApiErrorEnvelope(
+                    ApiError(
+                        BackendConstants.Errors.INTERNAL_ERROR_CODE,
+                        BackendConstants.Errors.INTERNAL_ERROR_MESSAGE,
+                        call.callId ?: "unknown"
+                    )
+                )
             )
         }
         status(HttpStatusCode.NotFound) { call, status ->
             call.respond(
                 status,
-                ApiErrorEnvelope(ApiError("not_found", "The requested resource was not found", call.callId ?: "unknown"))
+                ApiErrorEnvelope(
+                    ApiError(
+                        BackendConstants.Errors.NOT_FOUND_CODE,
+                        BackendConstants.Errors.NOT_FOUND_MESSAGE,
+                        call.callId ?: "unknown"
+                    )
+                )
             )
         }
     }
@@ -99,6 +169,10 @@ fun Application.module() {
             isLenient = true
             encodeDefaults = true
         })
+    }
+
+    install(RequestValidation) {
+        configureRequestValidation()
     }
 
     val discordClientId = System.getenv("DISCORD_CLIENT_ID") ?: BackendConstants.Discord.DEFAULT_CLIENT_ID
