@@ -1,4 +1,8 @@
-import { DISCORD_CONFIG, TOAST_MESSAGES } from '../../../constants'
+import {
+  CONFIRM_MESSAGES,
+  DISCORD_CONFIG,
+  TOAST_MESSAGES,
+} from '../../../constants'
 import {
   useDiscordInviteQuery,
   useDiscordServersQuery,
@@ -16,11 +20,7 @@ export function ConnectedServersTab() {
   const inviteUrl = inviteData?.inviteUrl || DISCORD_CONFIG.FALLBACK_INVITE_URL
 
   function handleLeave(id: string, serverName?: string) {
-    if (
-      !confirm(
-        `Are you sure you want to disconnect ${serverName || 'this Discord server'}?`,
-      )
-    ) {
+    if (!confirm(CONFIRM_MESSAGES.LEAVE_SERVER(serverName))) {
       return
     }
 

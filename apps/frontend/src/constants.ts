@@ -19,6 +19,11 @@ export const TIMING_CONFIG = {
   TOAST_AUTO_DISMISS_MS: 5000,
 } as const
 
+export const CONFIRM_MESSAGES = {
+  LEAVE_SERVER: (serverName?: string) =>
+    `Are you sure you want to disconnect ${serverName || 'this Discord server'}?`,
+} as const
+
 export const TOAST_MESSAGES = {
   BOT_LEFT_SERVER: (serverName?: string) => ({
     title: 'Bot Left Server',

@@ -12,7 +12,7 @@ import { SlashCommandsTab } from './components/discord/tabs/SlashCommandsTab'
 import { BackendHealthTab } from './components/discord/tabs/BackendHealthTab'
 import { SettingsPage } from './components/settings/SettingsPage'
 import { NotFoundPage } from './components/NotFoundPage'
-import { ROUTES } from './routes'
+import { ROUTE_SEGMENTS, ROUTES } from './routes'
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
@@ -34,7 +34,7 @@ const homeRoute = createRoute({
 
 const discordRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'discordbot',
+  path: ROUTE_SEGMENTS.DISCORDBOT,
   component: DiscordPage,
   staticData: { title: 'Discord Bot' },
 })
@@ -49,25 +49,25 @@ const discordIndexRoute = createRoute({
 
 const discordServersRoute = createRoute({
   getParentRoute: () => discordRoute,
-  path: 'servers',
+  path: ROUTE_SEGMENTS.SERVERS,
   component: ConnectedServersTab,
 })
 
 const discordCommandsRoute = createRoute({
   getParentRoute: () => discordRoute,
-  path: 'commands',
+  path: ROUTE_SEGMENTS.COMMANDS,
   component: SlashCommandsTab,
 })
 
 const discordHealthRoute = createRoute({
   getParentRoute: () => discordRoute,
-  path: 'health',
+  path: ROUTE_SEGMENTS.HEALTH,
   component: BackendHealthTab,
 })
 
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'settings',
+  path: ROUTE_SEGMENTS.SETTINGS,
   component: SettingsPage,
   staticData: { title: 'Settings' },
 })
