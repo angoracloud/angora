@@ -1,36 +1,84 @@
+import { Card, Pill } from '../../ui'
+import { SLASH_COMMANDS_STRINGS } from '../../../strings'
+
 export function SlashCommandsTab() {
   return (
-    <div>
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <h3 style={{ marginBottom: '1rem', color: '#a5b4fc' }}>
-          Command Registry Overview
-        </h3>
-        <div className="command-list">
-          <div className="command-item">
-            <div>
-              <div className="command-name">/ping</div>
-              <div className="command-desc">
-                Checks bot WebSocket latency & API roundtrip latency
-              </div>
+    <Card>
+      <Card.Header title={SLASH_COMMANDS_STRINGS.OVERVIEW_TITLE} />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-6)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 'var(--space-6) var(--space-7)',
+            border: '0.0625rem solid var(--color-border)',
+            borderRadius: 'var(--radius-control)',
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 'var(--font-weight-semibold)',
+                color: 'var(--color-navy)',
+              }}
+            >
+              {SLASH_COMMANDS_STRINGS.PING_NAME}
             </div>
-            <span className="status-badge active">Registered</span>
-          </div>
-          <div
-            className="command-item"
-            style={{ opacity: 0.6, borderStyle: 'dashed' }}
-          >
-            <div>
-              <div className="command-name">/angora (Dedicated)</div>
-              <div className="command-desc">
-                Placeholder slot ready for custom dedicated commands
-              </div>
+            <div
+              style={{
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--color-text-secondary)',
+                marginTop: 'var(--space-1)',
+              }}
+            >
+              {SLASH_COMMANDS_STRINGS.PING_DESCRIPTION}
             </div>
-            <span className="status-badge inactive">
-              Ready for implementation
-            </span>
           </div>
+          <Pill variant="positive">{SLASH_COMMANDS_STRINGS.PING_STATUS}</Pill>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 'var(--space-6) var(--space-7)',
+            border: '0.0625rem dashed var(--color-border)',
+            borderRadius: 'var(--radius-control)',
+            opacity: 0.7,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 'var(--font-weight-semibold)',
+                color: 'var(--color-navy)',
+              }}
+            >
+              {SLASH_COMMANDS_STRINGS.DEDICATED_NAME}
+            </div>
+            <div
+              style={{
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--color-text-secondary)',
+                marginTop: 'var(--space-1)',
+              }}
+            >
+              {SLASH_COMMANDS_STRINGS.DEDICATED_DESCRIPTION}
+            </div>
+          </div>
+          <Pill variant="info">{SLASH_COMMANDS_STRINGS.DEDICATED_STATUS}</Pill>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }

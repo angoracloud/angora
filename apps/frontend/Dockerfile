@@ -4,6 +4,15 @@
 
 # Stage 1: Build the application
 FROM node:24-alpine AS build
+
+# .git is excluded from the build context (see .dockerignore), so the real
+# commit hash can't be read via `git rev-parse` inside the image the way
+# vite.config.ts does for local `pnpm dev`/`pnpm build`. Pass it in instead:
+# `docker-compose build --build-arg GIT_SHA=$(git rev-parse --short HEAD) frontend`
+# (docker-compose.yml forwards a GIT_SHA env var to this arg automatically).
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
+
 WORKDIR /workspace
 RUN npm install -g pnpm
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./

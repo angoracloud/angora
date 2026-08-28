@@ -1,0 +1,16 @@
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 0.0625rem 0.4375rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-canvas);
+  color: var(--color-text-muted);
+}
+
+.active {
+  background: rgba(47, 107, 237, 0.12);
+  color: var(--color-accent);
+}

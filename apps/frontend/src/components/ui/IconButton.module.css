@@ -1,0 +1,28 @@
+.iconBtn {
+  position: relative;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: var(--radius-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  border: 0.0625rem solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.iconBtn:hover {
+  background: var(--color-canvas);
+}
+
+.dot {
+  position: absolute;
+  top: 0.4375rem;
+  right: 0.5rem;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: var(--color-notify-dot);
+  border: 0.0938rem solid var(--color-surface);
+}

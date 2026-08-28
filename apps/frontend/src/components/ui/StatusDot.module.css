@@ -1,0 +1,20 @@
+.dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex: none;
+}
+
+.open {
+  background: var(--color-accent);
+}
+.pending {
+  background: var(--color-pending);
+}
+.solved {
+  background: var(--color-success-text);
+}
+.attention {
+  background: var(--color-notify-dot);
+}

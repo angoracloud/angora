@@ -309,9 +309,15 @@ docker-compose --env-file .env.production up -d --build
 | `FRONTEND_PORT` | `3000` | Host port `frontend` publishes to |
 | `DISCORD_BOT_TOKEN` | `YOUR_DISCORD_BOT_TOKEN` | `discord-bot` token for connecting to Discord gateway (idles gracefully if unchanged) |
 | `DISCORD_CLIENT_ID` | `123456789012345678` | `discord-bot` application/client ID for command registration and OAuth invite URLs |
+| `SERVICE_TOKEN_DISCORD_BOT` | `dev-discord-bot-token` | Shared secret authenticating `discord-bot` → `backend` calls. Read by **both** services and must match; the backend stores its hash in `service_tokens` at startup |
+| `COOKIE_SECURE` | `false` | Marks the login session cookie `Secure`. Must be `true` wherever TLS terminates in front of the stack; `false` locally, since browsers never send a `Secure` cookie over plain HTTP |
+| `CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated exact origins allowed to send credentialed cross-origin requests. Empty is correct here — nginx serves the frontend on the same origin as the API, and `pnpm run dev:frontend` proxies `/api` to the backend, so that case is same-origin too. No default is baked in: a value grants that origin authenticated access wherever the variable isn't overridden |
+
+Authentication behavior (login, session cookies, password hashing, lockout, service tokens) is documented in [`apps/backend/README.md`](apps/backend/README.md#authentication), including how to seed the first user — there is no signup or invite flow yet.
+| `GIT_SHA` | `unknown` | Build-time only (not a runtime env var) — passed as a Docker build arg for `frontend`, embedded into the app bundle and shown in the sidebar's version marker. `.git` isn't in the Docker build context, so this is the only way the containerized build knows its own commit; set it at build time, e.g. `GIT_SHA=$(git rev-parse --short HEAD) docker-compose up --build frontend` |
 
 - **Local development**: copy [`.env.example`](.env.example) to `.env` (`cp .env.example .env`) and edit it — docker-compose loads `.env` from the project root automatically. This step is optional; the defaults above already match `.env.example`.
-- **Production-like run**: copy [`.env.production.example`](.env.production.example) to `.env.production`, fill in real secrets (especially `POSTGRES_PASSWORD`, as the placeholder isn't usable as-is, and real `DISCORD_BOT_TOKEN`/`DISCORD_CLIENT_ID` values if enabling live Discord bot functionality), and pass it explicitly — docker-compose only auto-loads a file literally named `.env`, so this one is opt-in on purpose:
+- **Production-like run**: copy [`.env.production.example`](.env.production.example) to `.env.production`, fill in real secrets (especially `POSTGRES_PASSWORD` and `SERVICE_TOKEN_DISCORD_BOT`, as neither placeholder is usable as-is, plus real `DISCORD_BOT_TOKEN`/`DISCORD_CLIENT_ID` values if enabling live Discord bot functionality), set `COOKIE_SECURE=true`, and pass it explicitly — docker-compose only auto-loads a file literally named `.env`, so this one is opt-in on purpose:
   ```bash
   docker-compose --env-file .env.production up -d --build
   ```
@@ -323,6 +329,10 @@ Backend-specific variables (`DB_URL`, `DB_USER`, `DB_PASSWORD`) are documented i
 
 ```
 angora/
+├── .agents/
+│   └── skills/
+│       └── pr-review/              # Vendor-neutral PR review procedure; .claude/skills/pr-review symlinks here
+│
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                  # backend/frontend-bots/guardrails, on PR + push to main
@@ -382,7 +392,7 @@ The three bots use `wget` (not `curl`, which isn't present on `node:24-alpine`) 
 - **Database / User / Password / Port**: `angora` / `angora` / `angora` / `5432` by default — override via `POSTGRES_DB`/`POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_PORT` in `.env` (see [Environment Variables](#environment-variables))
 - **Volume**: `angora-postgres-data`, mounted at `/var/lib/postgresql` (PostgreSQL 18+ images lay out data in a version-specific subdirectory there, not at `/var/lib/postgresql/data` as in older images)
 - **Network**: `angora-network` (custom Docker network)
-- **Schema**: managed by Flyway migrations, applied automatically on every backend startup — `companies`, `roles`, `users`, `accounts`, `contacts`, `discord_servers`. See [`apps/backend/README.md`](apps/backend/README.md#database-schema) for the table-by-table breakdown and how to add a migration.
+- **Schema**: managed by Flyway migrations, applied automatically on every backend startup — `companies`, `roles`, `users`, `accounts`, `contacts`, `discord_servers`, `sessions`, `user_identities`, `service_tokens`. See [`apps/backend/README.md`](apps/backend/README.md#database-schema) for the table-by-table breakdown and how to add a migration.
 
 Connection details from the backend's own code live in [`apps/backend/README.md`](apps/backend/README.md#database-access).
 
@@ -390,12 +400,15 @@ Connection details from the backend's own code live in [`apps/backend/README.md`
 
 Things that look done but have known gaps worth knowing about before relying on them:
 
-- **Test coverage is thin.** The backend has one real integration test suite (`apps/backend/test/kotlin/repository/DiscordRepositoryImplTest.kt`, running against a real Testcontainers-provisioned Postgres — see [`apps/backend/README.md#testing`](apps/backend/README.md#testing)) covering a single repository; most repositories/services/routes have no tests yet. The frontend and each bot have exactly one placeholder Vitest smoke test each, added to give CI something meaningful to run — none of them test actual behavior yet. A green CI run mostly means "compiles, lints, and formats correctly, and the one thing under test still works," not "is correct."
+- **Authentication has no user interface.** The backend authenticates properly — login, session cookies, Argon2id hashing, lockout, RBAC principals — but there is no login page, so the only way in is `curl`. There is also no signup, invitation, password reset, or email verification, which means the first user has to be inserted into the database by hand ([how](apps/backend/README.md#seeding-the-first-user)). Role gating is scaffolded but not yet applied route-by-route: any authenticated user currently reaches every CRM route.
+- **Test coverage is uneven.** The backend has real integration tests running against a Testcontainers-provisioned Postgres (see [`apps/backend/README.md#testing`](apps/backend/README.md#testing)) covering the Discord repository and the whole auth layer — repositories, password hashing, and login behavior — but accounts, contacts, and the route layer have none, and there are no HTTP-level tests. The frontend and each bot still have exactly one placeholder Vitest smoke test each, testing no actual behavior. A green CI run means "compiles, lints, formats, and the tested slices still work," not "is correct."
 - **Deploy is not wired up.** `.github/workflows/deploy.yml` is a manual-trigger-only stub with TODO steps — merging to `main` does not deploy anything anywhere yet.
 
 ## Agent Configuration
 
 For AI agent assistance with this project, see [AGENTS.md](./AGENTS.md) for repo-wide instructions and constraints. Each module also has its own `AGENTS.md` with rules scoped to that directory: [`apps/backend`](apps/backend/AGENTS.md), [`apps/frontend`](apps/frontend/AGENTS.md), [`apps/bots`](apps/bots/AGENTS.md), [`packages/config`](packages/config/AGENTS.md).
+
+Task-specific procedures live in `.agents/skills/`, kept outside any single vendor's directory so every agent can read them: [`pr-review`](.agents/skills/pr-review/SKILL.md) is a read-only pull-request review protocol (`.claude/skills/pr-review` symlinks to it so Claude Code loads it as a skill).
 
 ## Troubleshooting
 
@@ -424,6 +437,8 @@ Every change starts from an issue. Issues are auto-prefixed `ANGORA-<number>` on
 4. Commit your changes (`git commit -m 'Add some feature'`) — the pre-commit hook runs lint + format:check automatically
 5. Push the branch (`git push origin feature/your-feature`) — pushing to `main` directly is blocked locally, see [CI, Git Hooks & Deployment](#ci-git-hooks--deployment)
 6. Open a Pull Request — CI runs automatically and reports status on the PR (not yet a hard merge gate, see [Limitations](#limitations))
+
+Reviewers (human or AI) can follow [`.agents/skills/pr-review/SKILL.md`](.agents/skills/pr-review/SKILL.md), a read-only review procedure that checks the things CI can't: whether the change matches its linked issue, whether the new tests would actually catch a regression, and whether any new dependency's license is compatible (see [AGENTS.md](AGENTS.md#licensing) — nothing in CI checks that). It produces an advisory report only; approving a PR stays a human action.
 
 ## License
 
