@@ -309,6 +309,7 @@ docker-compose --env-file .env.production up -d --build
 | `FRONTEND_PORT` | `3000` | Host port `frontend` publishes to |
 | `DISCORD_BOT_TOKEN` | `YOUR_DISCORD_BOT_TOKEN` | `discord-bot` token for connecting to Discord gateway (idles gracefully if unchanged) |
 | `DISCORD_CLIENT_ID` | `123456789012345678` | `discord-bot` application/client ID for command registration and OAuth invite URLs |
+| `GIT_SHA` | `unknown` | Build-time only (not a runtime env var) — passed as a Docker build arg for `frontend`, embedded into the app bundle and shown in the sidebar's version marker. `.git` isn't in the Docker build context, so this is the only way the containerized build knows its own commit; set it at build time, e.g. `GIT_SHA=$(git rev-parse --short HEAD) docker-compose up --build frontend` |
 
 - **Local development**: copy [`.env.example`](.env.example) to `.env` (`cp .env.example .env`) and edit it — docker-compose loads `.env` from the project root automatically. This step is optional; the defaults above already match `.env.example`.
 - **Production-like run**: copy [`.env.production.example`](.env.production.example) to `.env.production`, fill in real secrets (especially `POSTGRES_PASSWORD`, as the placeholder isn't usable as-is, and real `DISCORD_BOT_TOKEN`/`DISCORD_CLIENT_ID` values if enabling live Discord bot functionality), and pass it explicitly — docker-compose only auto-loads a file literally named `.env`, so this one is opt-in on purpose:

@@ -1,0 +1,25 @@
+.icon {
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: var(--radius-sm);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-2xs);
+  color: #fff;
+}
+
+.discord {
+  background: var(--color-channel-discord);
+}
+.slack {
+  background: var(--color-channel-slack);
+}
+.email {
+  background: var(--color-channel-email);
+}
+.web {
+  background: var(--color-channel-web);
+}

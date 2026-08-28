@@ -1,29 +1,26 @@
-import type { InviteData } from '../../../types'
+import { useDiscordInviteQuery } from '../../../hooks/discordQueries'
+import { BACKEND_HEALTH_STRINGS } from '../../../strings'
+import { Card } from '../../ui'
 
-interface BackendHealthTabProps {
-  inviteData: InviteData | null
-}
+export function BackendHealthTab() {
+  const { data: inviteData } = useDiscordInviteQuery()
 
-export function BackendHealthTab({ inviteData }: BackendHealthTabProps) {
   return (
-    <div>
-      <div className="card">
-        <h3 style={{ marginBottom: '0.5rem' }}>
-          Discord OAuth Invite Link Data
-        </h3>
-        <pre
-          style={{
-            background: 'var(--bg-primary)',
-            padding: '1rem',
-            borderRadius: '8px',
-            overflowX: 'auto',
-            color: '#a5b4fc',
-            fontSize: '0.85rem',
-          }}
-        >
-          {JSON.stringify(inviteData, null, 2)}
-        </pre>
-      </div>
-    </div>
+    <Card>
+      <Card.Header title={BACKEND_HEALTH_STRINGS.TITLE} />
+      <pre
+        style={{
+          background: 'var(--color-canvas)',
+          padding: 'var(--space-6)',
+          borderRadius: 'var(--radius-control)',
+          overflowX: 'auto',
+          color: 'var(--color-text-secondary)',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-size-sm)',
+        }}
+      >
+        {JSON.stringify(inviteData, null, 2)}
+      </pre>
+    </Card>
   )
 }
