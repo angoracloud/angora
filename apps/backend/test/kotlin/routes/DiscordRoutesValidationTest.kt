@@ -1,5 +1,6 @@
 package cloud.angora.routes
 
+import cloud.angora.auth.ServicePrincipal
 import cloud.angora.constants.BackendConstants
 import cloud.angora.dto.*
 import cloud.angora.error.ApiException
@@ -10,6 +11,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.CannotTransformContentToTypeException
 import io.ktor.server.plugins.callid.*
@@ -53,6 +55,8 @@ class DiscordRoutesValidationTest {
         ignoreUnknownKeys = true
         isLenient = true
     }
+
+    private val validServiceToken = "test-service-token"
 
     private fun ApplicationTestBuilder.configureTestApp(discordService: DiscordService) {
         application {
@@ -140,6 +144,20 @@ class DiscordRoutesValidationTest {
                     encodeDefaults = true
                 })
             }
+            install(Authentication) {
+                bearer(BackendConstants.Auth.SERVICE_PROVIDER) {
+                    authenticate { credential ->
+                        if (credential.token == validServiceToken) {
+                            ServicePrincipal(UUID.randomUUID(), "discord-bot")
+                        } else {
+                            null
+                        }
+                    }
+                }
+                bearer(BackendConstants.Auth.USER_PROVIDER) {
+                    authenticate { null }
+                }
+            }
             install(RequestValidation) {
                 configureRequestValidation()
             }
@@ -155,6 +173,7 @@ class DiscordRoutesValidationTest {
         configureTestApp(fakeService)
 
         val response = client.post("/api/discord/bot/sync") {
+            header(HttpHeaders.Authorization, "Bearer $validServiceToken")
             contentType(ContentType.Application.Json)
             setBody(
                 """
@@ -174,11 +193,34 @@ class DiscordRoutesValidationTest {
     }
 
     @Test
+    fun `POST sync without authorization token returns 401 Unauthorized`() = testApplication {
+        val fakeService = FakeDiscordService()
+        configureTestApp(fakeService)
+
+        val response = client.post("/api/discord/bot/sync") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                """
+                {
+                    "guildId": "123456789012345678",
+                    "name": "General Angora Server",
+                    "memberCount": 15
+                }
+                """.trimIndent()
+            )
+        }
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+        assertEquals(0, fakeService.syncedGuilds.size)
+    }
+
+    @Test
     fun `POST sync rejects blank guildId with 400 validation error`() = testApplication {
         val fakeService = FakeDiscordService()
         configureTestApp(fakeService)
 
         val response = client.post("/api/discord/bot/sync") {
+            header(HttpHeaders.Authorization, "Bearer $validServiceToken")
             contentType(ContentType.Application.Json)
             setBody(
                 """
@@ -204,6 +246,7 @@ class DiscordRoutesValidationTest {
         configureTestApp(fakeService)
 
         val response = client.post("/api/discord/bot/sync") {
+            header(HttpHeaders.Authorization, "Bearer $validServiceToken")
             contentType(ContentType.Application.Json)
             setBody(
                 """
@@ -228,6 +271,7 @@ class DiscordRoutesValidationTest {
         configureTestApp(fakeService)
 
         val response = client.post("/api/discord/bot/sync") {
+            header(HttpHeaders.Authorization, "Bearer $validServiceToken")
             contentType(ContentType.Application.Json)
             setBody("{ malformed json }")
         }
@@ -243,6 +287,7 @@ class DiscordRoutesValidationTest {
         configureTestApp(fakeService)
 
         val response = client.post("/api/discord/bot/sync") {
+            header(HttpHeaders.Authorization, "Bearer $validServiceToken")
             setBody("not-json-content")
         }
 

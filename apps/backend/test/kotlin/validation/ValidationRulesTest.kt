@@ -92,6 +92,7 @@ class ValidationRulesTest {
 
         assertNotNull(ValidationRules.requireUrl("ftp://example.com/file", "url"))
         assertNotNull(ValidationRules.requireUrl("not-a-url", "url"))
+        assertNotNull(ValidationRules.requireUrl("https:foo", "url"))
         assertNotNull(ValidationRules.requireUrl("https://long.com", "url", maxLength = 10))
     }
 }

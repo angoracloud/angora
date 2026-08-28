@@ -81,7 +81,11 @@ object ValidationRules {
         }
         return try {
             val uri = URI.create(value)
-            if (uri.scheme == null || !BackendConstants.Validation.Patterns.ALLOWED_URL_SCHEMES.contains(uri.scheme.lowercase())) {
+            if (uri.scheme == null ||
+                !BackendConstants.Validation.Patterns.ALLOWED_URL_SCHEMES.contains(uri.scheme.lowercase()) ||
+                uri.isOpaque ||
+                uri.host.isNullOrBlank()
+            ) {
                 BackendConstants.Validation.Messages.mustBeValidHttpOrHttpsUrl(fieldName)
             } else {
                 null

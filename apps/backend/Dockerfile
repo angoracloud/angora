@@ -23,7 +23,6 @@ RUN mvn -B package -DskipTests
 # Runtime stage
 FROM eclipse-temurin:25-jre-jammy
 WORKDIR /app
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 # docker-compose.yml's healthcheck for this service shells out to curl, which the
 # temurin JRE image doesn't ship (nor wget). Without this the backend could never
 # report healthy, and since frontend and all three bots wait on
