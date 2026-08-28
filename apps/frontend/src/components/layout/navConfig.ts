@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { Home, MessageSquare, X } from 'lucide-react'
 import { ROUTES } from '../../routes'
+import { NAV_COPY, PAGE_TITLES } from '../../copy'
 
 export interface NavItem {
   label: string
@@ -17,14 +18,14 @@ export interface NavSection {
 
 export const MAIN_NAV: NavSection[] = [
   {
-    section: 'Overview',
-    items: [{ label: 'Home', path: ROUTES.HOME, icon: Home, end: true }],
+    section: PAGE_TITLES.OVERVIEW,
+    items: [{ label: NAV_COPY.HOME, path: ROUTES.HOME, icon: Home, end: true }],
   },
   {
-    section: 'Integrations',
+    section: NAV_COPY.SECTION_INTEGRATIONS,
     items: [
       {
-        label: 'Discord Bot',
+        label: PAGE_TITLES.DISCORD_BOT,
         path: ROUTES.DISCORD.ROOT,
         icon: MessageSquare,
         countKey: 'discordServers',
@@ -35,7 +36,7 @@ export const MAIN_NAV: NavSection[] = [
 
 export const SETTINGS_NAV: NavSection[] = [
   {
-    section: 'Settings',
-    items: [{ label: 'Exit Settings', path: ROUTES.HOME, icon: X }],
+    section: PAGE_TITLES.SETTINGS,
+    items: [{ label: NAV_COPY.EXIT_SETTINGS, path: ROUTES.HOME, icon: X }],
   },
 ]

@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Avatar } from '../ui/Avatar'
 import { CURRENT_USER } from '../../constants'
+import { SIDEBAR_COPY } from '../../copy'
 import { MAIN_NAV, SETTINGS_NAV } from './navConfig'
 import styles from './Sidebar.module.css'
 
@@ -17,9 +18,9 @@ export function Sidebar({ mode = 'main', counts, open = false }: SidebarProps) {
     <aside className={`${styles.sb}${open ? ` ${styles.open}` : ''}`}>
       <div className={styles.brand}>
         <span className={styles.brandMark}>A</span>
-        <span className={styles.wordmark}>Angora</span>
+        <span className={styles.wordmark}>{SIDEBAR_COPY.WORDMARK}</span>
         <span className={styles.tag}>
-          {mode === 'settings' ? 'ADMIN' : 'CRM'}
+          {mode === 'settings' ? SIDEBAR_COPY.TAG_ADMIN : SIDEBAR_COPY.TAG_MAIN}
         </span>
       </div>
 
@@ -48,7 +49,7 @@ export function Sidebar({ mode = 'main', counts, open = false }: SidebarProps) {
       ))}
 
       <div className={styles.version}>
-        v{__APP_VERSION__} · {__COMMIT_HASH__} · self-hosted
+        v{__APP_VERSION__} · {__COMMIT_HASH__} · {SIDEBAR_COPY.VERSION_SUFFIX}
       </div>
       <div className={styles.user}>
         <Avatar name={CURRENT_USER.NAME} size="md" />

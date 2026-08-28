@@ -1,9 +1,10 @@
 import { Card, Pill } from '../../ui'
+import { SLASH_COMMANDS_COPY } from '../../../copy'
 
 export function SlashCommandsTab() {
   return (
     <Card>
-      <Card.Header title="Command Registry Overview" />
+      <Card.Header title={SLASH_COMMANDS_COPY.OVERVIEW_TITLE} />
       <div
         style={{
           display: 'flex',
@@ -29,7 +30,7 @@ export function SlashCommandsTab() {
                 color: 'var(--color-navy)',
               }}
             >
-              /ping
+              {SLASH_COMMANDS_COPY.PING_NAME}
             </div>
             <div
               style={{
@@ -38,10 +39,10 @@ export function SlashCommandsTab() {
                 marginTop: 'var(--space-1)',
               }}
             >
-              Checks bot WebSocket latency & API roundtrip latency
+              {SLASH_COMMANDS_COPY.PING_DESCRIPTION}
             </div>
           </div>
-          <Pill variant="positive">Registered</Pill>
+          <Pill variant="positive">{SLASH_COMMANDS_COPY.PING_STATUS}</Pill>
         </div>
 
         <div
@@ -63,7 +64,7 @@ export function SlashCommandsTab() {
                 color: 'var(--color-navy)',
               }}
             >
-              /angora (Dedicated)
+              {SLASH_COMMANDS_COPY.DEDICATED_NAME}
             </div>
             <div
               style={{
@@ -72,10 +73,10 @@ export function SlashCommandsTab() {
                 marginTop: 'var(--space-1)',
               }}
             >
-              Placeholder slot ready for custom dedicated commands
+              {SLASH_COMMANDS_COPY.DEDICATED_DESCRIPTION}
             </div>
           </div>
-          <Pill variant="info">Ready for implementation</Pill>
+          <Pill variant="info">{SLASH_COMMANDS_COPY.DEDICATED_STATUS}</Pill>
         </div>
       </div>
     </Card>

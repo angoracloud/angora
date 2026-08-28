@@ -1,4 +1,5 @@
 import { useDiscordInviteQuery } from '../../../hooks/discordQueries'
+import { BACKEND_HEALTH_COPY } from '../../../copy'
 import { Card } from '../../ui'
 
 export function BackendHealthTab() {
@@ -6,7 +7,7 @@ export function BackendHealthTab() {
 
   return (
     <Card>
-      <Card.Header title="Discord OAuth Invite Link Data" />
+      <Card.Header title={BACKEND_HEALTH_COPY.TITLE} />
       <pre
         style={{
           background: 'var(--color-canvas)',

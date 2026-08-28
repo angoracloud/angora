@@ -4,6 +4,7 @@ import {
   DISCORD_CONFIG,
   TOAST_MESSAGES,
 } from '../../../constants'
+import { CONNECTED_SERVERS_COPY } from '../../../copy'
 import {
   useDiscordInviteQuery,
   useDiscordServersQuery,
@@ -54,7 +55,7 @@ export function ConnectedServersTab() {
             padding: 'var(--space-6) 0',
           }}
         >
-          Loading connected servers...
+          {CONNECTED_SERVERS_COPY.LOADING}
         </p>
       )}
 
@@ -65,21 +66,21 @@ export function ConnectedServersTab() {
             padding: 'var(--space-6) 0',
           }}
         >
-          Error loading servers: {error.message}
+          {CONNECTED_SERVERS_COPY.ERROR_PREFIX} {error.message}
         </p>
       )}
 
       {!isLoading && servers.length === 0 && (
         <Card>
           <div style={{ textAlign: 'center', padding: 'var(--space-9) 0' }}>
-            <h3>No Discord Servers Connected</h3>
+            <h3>{CONNECTED_SERVERS_COPY.EMPTY_TITLE}</h3>
             <p
               style={{
                 color: 'var(--color-text-secondary)',
                 margin: 'var(--space-3) 0 var(--space-7)',
               }}
             >
-              Invite the bot to your Discord server to get started.
+              {CONNECTED_SERVERS_COPY.EMPTY_BODY}
             </p>
             <LinkButton
               href={inviteUrl}
@@ -87,7 +88,7 @@ export function ConnectedServersTab() {
               rel="noreferrer"
               variant="primary"
             >
-              Invite Bot to Discord Server (OAuth)
+              {CONNECTED_SERVERS_COPY.EMPTY_CTA}
             </LinkButton>
           </div>
         </Card>
@@ -115,9 +116,9 @@ export function ConnectedServersTab() {
               fontWeight: 'var(--font-weight-medium)',
             }}
           >
-            {servers.length} server{servers.length === 1 ? '' : 's'} registered
+            {CONNECTED_SERVERS_COPY.REGISTERED_COUNT(servers.length)}
           </span>
-          <Pill variant="positive">Live auto-sync active</Pill>
+          <Pill variant="positive">{CONNECTED_SERVERS_COPY.LIVE_SYNC}</Pill>
         </div>
       )}
 

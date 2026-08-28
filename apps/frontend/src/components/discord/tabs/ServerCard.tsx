@@ -1,4 +1,5 @@
 import { DISCORD_CONFIG } from '../../../constants'
+import { SERVER_CARD_COPY } from '../../../copy'
 import type { DiscordServer } from '../../../types'
 import { Avatar, Button, Card, LinkButton, StatusDot } from '../../ui'
 
@@ -40,7 +41,7 @@ export function ServerCard({ server, inviteUrl, onLeave }: ServerCardProps) {
               fontFamily: 'var(--font-mono)',
             }}
           >
-            ID: {server.guildId}
+            {SERVER_CARD_COPY.ID_LABEL} {server.guildId}
           </div>
         </div>
       </div>
@@ -52,7 +53,7 @@ export function ServerCard({ server, inviteUrl, onLeave }: ServerCardProps) {
           marginBottom: 'var(--space-3)',
         }}
       >
-        Members: <strong>{server.memberCount}</strong>
+        {SERVER_CARD_COPY.MEMBERS_LABEL} <strong>{server.memberCount}</strong>
       </div>
 
       <div
@@ -78,7 +79,9 @@ export function ServerCard({ server, inviteUrl, onLeave }: ServerCardProps) {
           }}
         >
           <StatusDot status={isConnected ? 'solved' : 'pending'} />
-          {isConnected ? 'Bot Connected' : 'Bot Left'}
+          {isConnected
+            ? SERVER_CARD_COPY.CONNECTED
+            : SERVER_CARD_COPY.DISCONNECTED}
         </span>
 
         {isConnected ? (
@@ -87,7 +90,7 @@ export function ServerCard({ server, inviteUrl, onLeave }: ServerCardProps) {
             size="sm"
             onClick={() => onLeave(server.id, server.name)}
           >
-            Remove
+            {SERVER_CARD_COPY.REMOVE}
           </Button>
         ) : (
           <LinkButton
@@ -97,7 +100,7 @@ export function ServerCard({ server, inviteUrl, onLeave }: ServerCardProps) {
             variant="primary"
             size="sm"
           >
-            Reconnect
+            {SERVER_CARD_COPY.RECONNECT}
           </LinkButton>
         )}
       </div>

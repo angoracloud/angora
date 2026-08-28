@@ -13,6 +13,7 @@ import { BackendHealthTab } from './components/discord/tabs/BackendHealthTab'
 import { SettingsPage } from './components/settings/SettingsPage'
 import { NotFoundPage } from './components/NotFoundPage'
 import { ROUTE_SEGMENTS, ROUTES } from './routes'
+import { PAGE_TITLES } from './copy'
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
@@ -29,14 +30,14 @@ const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: ROUTES.HOME,
   component: HomePage,
-  staticData: { title: 'Overview' },
+  staticData: { title: PAGE_TITLES.OVERVIEW },
 })
 
 const discordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: ROUTE_SEGMENTS.DISCORDBOT,
   component: DiscordPage,
-  staticData: { title: 'Discord Bot' },
+  staticData: { title: PAGE_TITLES.DISCORD_BOT },
 })
 
 const discordIndexRoute = createRoute({
@@ -69,7 +70,7 @@ const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: ROUTE_SEGMENTS.SETTINGS,
   component: SettingsPage,
-  staticData: { title: 'Settings' },
+  staticData: { title: PAGE_TITLES.SETTINGS },
 })
 
 const routeTree = rootRoute.addChildren([

@@ -4,6 +4,7 @@ import {
   useDiscordServersQuery,
 } from '../../hooks/discordQueries'
 import { DISCORD_CONFIG } from '../../constants'
+import { DISCORD_PAGE_COPY } from '../../copy'
 import { ROUTES } from '../../routes'
 import { CountBadge, LinkButton } from '../ui'
 import tabButtonStyles from '../ui/TabButton.module.css'
@@ -26,8 +27,7 @@ export function DiscordPage() {
         }}
       >
         <p style={{ color: 'var(--color-text-secondary)' }}>
-          Manage connected Discord servers, invite Angora Bot, and view slash
-          commands.
+          {DISCORD_PAGE_COPY.DESCRIPTION}
         </p>
         <LinkButton
           href={inviteUrl}
@@ -35,7 +35,7 @@ export function DiscordPage() {
           rel="noreferrer"
           variant="primary"
         >
-          Add Bot to Server (OAuth)
+          {DISCORD_PAGE_COPY.INVITE_CTA}
         </LinkButton>
       </div>
 
@@ -54,7 +54,7 @@ export function DiscordPage() {
         >
           {({ isActive }) => (
             <>
-              Connected Servers{' '}
+              {DISCORD_PAGE_COPY.TAB_SERVERS}{' '}
               <CountBadge count={servers?.length ?? 0} active={isActive} />
             </>
           )}
@@ -64,14 +64,14 @@ export function DiscordPage() {
           className={tabButtonStyles.tabBtn}
           activeProps={{ className: tabButtonStyles.active }}
         >
-          Slash Commands
+          {DISCORD_PAGE_COPY.TAB_COMMANDS}
         </Link>
         <Link
           to={ROUTES.DISCORD.HEALTH}
           className={tabButtonStyles.tabBtn}
           activeProps={{ className: tabButtonStyles.active }}
         >
-          Backend Health
+          {DISCORD_PAGE_COPY.TAB_HEALTH}
         </Link>
       </nav>
 

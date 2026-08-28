@@ -4,6 +4,7 @@ import { Avatar } from '../ui/Avatar'
 import { IconButton } from '../ui/IconButton'
 import { SearchInput } from '../ui/SearchInput'
 import { CURRENT_USER, NOT_FOUND_TITLE } from '../../constants'
+import { PAGE_TITLES, TOPBAR_COPY } from '../../copy'
 import { ROUTES } from '../../routes'
 import styles from './TopBar.module.css'
 
@@ -27,7 +28,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     <div className={styles.top}>
       <IconButton
         icon={Menu}
-        label="Toggle navigation"
+        label={TOPBAR_COPY.TOGGLE_NAV}
         onClick={onMenuClick}
         className={styles.menuButton}
       />
@@ -54,14 +55,14 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       )}
 
       <div className={styles.searchSlot}>
-        <SearchInput placeholder="Search tickets, contacts, messages…" />
+        <SearchInput placeholder={TOPBAR_COPY.SEARCH_PLACEHOLDER} />
       </div>
 
       <div className={styles.actions}>
-        <IconButton icon={Bell} label="Notifications" withDot />
+        <IconButton icon={Bell} label={TOPBAR_COPY.NOTIFICATIONS} withDot />
         <IconButton
           icon={Settings}
-          label="Settings"
+          label={PAGE_TITLES.SETTINGS}
           onClick={() => navigate({ to: ROUTES.SETTINGS })}
         />
         <Avatar name={CURRENT_USER.NAME} size="md" />
