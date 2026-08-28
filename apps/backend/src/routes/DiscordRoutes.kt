@@ -71,7 +71,10 @@ fun Route.discordRoutes(discordService: DiscordService) {
             post(BackendConstants.Routes.DISCORD_BOT_SYNC) {
                 val req = call.receive<SyncGuildRequest>()
                 discordService.syncGuild(req)
-                call.respond(HttpStatusCode.OK, SyncStatusResponse(status = "synced"))
+                call.respond(
+                    HttpStatusCode.OK,
+                    SyncStatusResponse(status = BackendConstants.Discord.ServerStatus.SYNCED)
+                )
             }
         }
     }

@@ -5,6 +5,7 @@ import cloud.angora.plugins.configureErrorHandling
 import cloud.angora.plugins.configureHttp
 import cloud.angora.plugins.configureMonitoring
 import cloud.angora.plugins.configureSecurity
+import cloud.angora.plugins.configureValidation
 import cloud.angora.routes.authRoutes
 import cloud.angora.routes.discordRoutes
 import cloud.angora.routes.healthRoutes
@@ -32,6 +33,7 @@ fun Application.module() {
     configureErrorHandling()
     configureHttp()
     configureSecurity(dependencies.authService, dependencies.serviceTokenService)
+    configureValidation()
 
     dependencies.serviceTokenService.register(
         name = BackendConstants.Auth.DISCORD_BOT_TOKEN_NAME,
