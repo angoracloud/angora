@@ -329,6 +329,10 @@ Backend-specific variables (`DB_URL`, `DB_USER`, `DB_PASSWORD`) are documented i
 
 ```
 angora/
+├── .agents/
+│   └── skills/
+│       └── pr-review/              # Vendor-neutral PR review procedure; .claude/skills/pr-review symlinks here
+│
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                  # backend/frontend-bots/guardrails, on PR + push to main
@@ -404,6 +408,8 @@ Things that look done but have known gaps worth knowing about before relying on 
 
 For AI agent assistance with this project, see [AGENTS.md](./AGENTS.md) for repo-wide instructions and constraints. Each module also has its own `AGENTS.md` with rules scoped to that directory: [`apps/backend`](apps/backend/AGENTS.md), [`apps/frontend`](apps/frontend/AGENTS.md), [`apps/bots`](apps/bots/AGENTS.md), [`packages/config`](packages/config/AGENTS.md).
 
+Task-specific procedures live in `.agents/skills/`, kept outside any single vendor's directory so every agent can read them: [`pr-review`](.agents/skills/pr-review/SKILL.md) is a read-only pull-request review protocol (`.claude/skills/pr-review` symlinks to it so Claude Code loads it as a skill).
+
 ## Troubleshooting
 
 ### Common Issues
@@ -431,6 +437,8 @@ Every change starts from an issue. Issues are auto-prefixed `ANGORA-<number>` on
 4. Commit your changes (`git commit -m 'Add some feature'`) — the pre-commit hook runs lint + format:check automatically
 5. Push the branch (`git push origin feature/your-feature`) — pushing to `main` directly is blocked locally, see [CI, Git Hooks & Deployment](#ci-git-hooks--deployment)
 6. Open a Pull Request — CI runs automatically and reports status on the PR (not yet a hard merge gate, see [Limitations](#limitations))
+
+Reviewers (human or AI) can follow [`.agents/skills/pr-review/SKILL.md`](.agents/skills/pr-review/SKILL.md), a read-only review procedure that checks the things CI can't: whether the change matches its linked issue, whether the new tests would actually catch a regression, and whether any new dependency's license is compatible (see [AGENTS.md](AGENTS.md#licensing) — nothing in CI checks that). It produces an advisory report only; approving a PR stays a human action.
 
 ## License
 
