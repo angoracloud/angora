@@ -10,6 +10,7 @@ import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.ContentTransformationException
+import io.ktor.server.plugins.requestvalidation.RequestValidationException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.uri
 
@@ -23,6 +24,19 @@ fun Application.configureErrorHandling() {
         // rather than building a response by hand.
         exception<ApiException> { call, cause ->
             call.respondError(cause.statusCode, cause.code, cause.message)
+        }
+
+        exception<RequestValidationException> { call, cause ->
+            val message = if (cause.reasons.isNotEmpty()) {
+                cause.reasons.joinToString("; ")
+            } else {
+                BackendConstants.Errors.VALIDATION_ERROR_MESSAGE
+            }
+            call.respondError(
+                HttpStatusCode.BadRequest,
+                BackendConstants.Errors.VALIDATION_ERROR_CODE,
+                message
+            )
         }
 
         // A body that is absent, unparseable, or sent without a usable
