@@ -48,7 +48,7 @@ interface SessionRepository {
 
     fun revokeAllForUser(userId: UUID, at: Instant): Int
 
-    fun touch(sessionId: UUID, at: Instant)
+    fun recordLastSeen(sessionId: UUID, at: Instant)
 
     /** Hard-deletes rows already past their expiry. Returns the number removed. */
     fun deleteExpired(now: Instant): Int
@@ -119,7 +119,7 @@ class SessionRepositoryImpl(private val database: Database) : SessionRepository 
         }
     }
 
-    override fun touch(sessionId: UUID, at: Instant) {
+    override fun recordLastSeen(sessionId: UUID, at: Instant) {
         transaction(database) {
             Sessions.update({ Sessions.id eq sessionId }) {
                 it[lastSeenAt] = at

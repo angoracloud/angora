@@ -143,17 +143,17 @@ class SessionRepositoryImplTest : PostgresRepositoryTest() {
     }
 
     @Test
-    fun `touch records when the session was last seen`() {
+    fun `recordLastSeen records when the session was last seen`() {
         val userId = seedUser()
         val sessionId = createSession(userId, tokenHash = "touched")
         assertNull(readSession(sessionId).lastSeenAt)
 
         val first = Instant.now()
-        repository.touch(sessionId, first)
+        repository.recordLastSeen(sessionId, first)
         val afterFirst = readSession(sessionId).lastSeenAt
         assertNotNull(afterFirst)
 
-        repository.touch(sessionId, first.plusSeconds(60))
+        repository.recordLastSeen(sessionId, first.plusSeconds(60))
 
         assertTrue(readSession(sessionId).lastSeenAt!!.isAfter(afterFirst))
     }

@@ -3,6 +3,11 @@ package cloud.angora.constants
 import java.time.Duration
 
 object BackendConstants {
+    /** Path literals with no single owner, kept here so they aren't retyped per feature. */
+    object Paths {
+        const val ROOT = "/"
+    }
+
     object Routes {
         const val HEALTH_PATH = "/api/health"
         const val DISCORD_BASE = "/api/discord"
@@ -25,7 +30,6 @@ object BackendConstants {
         const val SERVICE_PROVIDER = "service"
 
         const val COOKIE_NAME = "angora_session"
-        const val COOKIE_PATH = "/"
         const val COOKIE_SAME_SITE = "Strict"
 
         val SESSION_TTL: Duration = Duration.ofDays(7)
@@ -71,12 +75,27 @@ object BackendConstants {
             const val VERSION = 19
         }
 
-        /** Login attempts allowed per [LOGIN_RATE_LIMIT_WINDOW] before the endpoint throttles. */
+        /**
+         * The login throttle, read as a pair: [LOGIN_RATE_LIMIT] attempts are
+         * allowed per caller per [LOGIN_RATE_LIMIT_WINDOW] — 10 per minute — after
+         * which the endpoint answers 429 until the window refills.
+         *
+         * This complements [MAX_FAILED_LOGIN_ATTEMPTS]/[LOCKOUT_DURATION] rather
+         * than duplicating it: the lockout stops one account being hammered, this
+         * stops one client working through many accounts.
+         */
         const val LOGIN_RATE_LIMIT = 10
 
+        /** The refill period for [LOGIN_RATE_LIMIT]. See its doc for the pair. */
         val LOGIN_RATE_LIMIT_WINDOW: Duration = Duration.ofMinutes(1)
 
         const val LOGIN_RATE_LIMITER_NAME = "login"
+
+        /** The `status` values `/logout` and `/logout-all` return. Part of the API contract. */
+        object LogoutStatus {
+            const val CURRENT_SESSION = "logged_out"
+            const val ALL_SESSIONS = "logged_out_everywhere"
+        }
     }
 
     object Identity {
@@ -123,6 +142,28 @@ object BackendConstants {
          */
         const val INVALID_CREDENTIALS_CODE = "invalid_credentials"
         const val INVALID_CREDENTIALS_MESSAGE = "Invalid email or password"
+
+        /**
+         * Why a login actually failed, for the server-side log only — **never**
+         * for a response. Every one of these paths answers the caller with
+         * [INVALID_CREDENTIALS_CODE]/[INVALID_CREDENTIALS_MESSAGE]; that
+         * uniformity is what stops the endpoint disclosing which addresses hold
+         * accounts. Don't pass one of these to an `ApiException`.
+         *
+         * The templated ones are `String.format` patterns, not display text.
+         */
+        object LoginFailureReasons {
+            const val NO_USER_FOR_EMAIL = "no user for email"
+
+            /** `%s` = locked-until instant, `%s` = user id. */
+            const val ACCOUNT_LOCKED = "account locked until %s (user %s)"
+
+            /** `%s` = user id. */
+            const val WRONG_PASSWORD = "wrong password (user %s)"
+
+            /** `%s` = status, `%s` = user id. */
+            const val INACTIVE_STATUS = "status is '%s' (user %s)"
+        }
 
         const val UNAUTHENTICATED_CODE = "unauthenticated"
         const val UNAUTHENTICATED_MESSAGE = "Authentication required"

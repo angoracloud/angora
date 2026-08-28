@@ -59,6 +59,23 @@ Full behavior is documented in [`README.md`](README.md#authentication); these ar
 
 8. **Adding a signed or crypto dependency**: check the license first (the root AGENTS.md's Licensing section). `de.mkammerer:argon2-jvm` is LGPL-3.0 and was rejected for that reason; Bouncy Castle's `bcprov-jdk18on` is MIT. Note `bc-kotlin` is not a substitute — it wraps PKI/certificate APIs, not crypto primitives, and isn't published to Maven Central.
 
+## Constants discipline
+
+**No hardcoded literals in routes, services, repositories, or plugins — full stop.** Everything below belongs in `src/constants/Constants.kt` under `BackendConstants`, even when it currently appears exactly once, and this applies to every change, not just to adding an endpoint. The frontend holds the same rule for its own literals (see [`apps/frontend/AGENTS.md`](../frontend/AGENTS.md)); this is the backend half of it.
+
+What that covers today, and the group each belongs in:
+
+- **`Routes`** — every path segment (`AUTH_BASE`, `AUTH_LOGIN`, …). Routes are mounted from these constants, never from a string typed at the `route(...)` call.
+- **`Paths`** — path literals with no single owner. `ROOT` (`"/"`) lives here rather than being retyped as a cookie path, a healthcheck target, or a redirect.
+- **`Auth`** — provider names, cookie attributes, TTLs and sweep intervals, token sizes, hash algorithm names, the `Argon2` parameter block, lockout and rate-limit settings, and the env var names they are read from (`COOKIE_SECURE_ENV`, `CORS_ALLOWED_ORIGINS_ENV`, …). Read env vars as `System.getenv(BackendConstants.Auth.X_ENV)`, never with the name inline.
+- **`Errors`** — the `code`/`message` pair for every `ApiException` and `respondError` call, as a `_CODE`/`_MESSAGE` pair. These are the API's error contract; other endpoints end up needing the same code.
+- **API response status literals** — values a DTO carries as part of the contract, e.g. `Auth.LogoutStatus.CURRENT_SESSION` / `ALL_SESSIONS` for `LogoutResponse.status`.
+- **Server-side log reason strings** — `Errors.LoginFailureReasons`. Templated ones are `String.format` patterns applied at the call site (`ACCOUNT_LOCKED.format(user.lockedUntil, user.id)`), not string interpolation.
+
+Two things that are *not* covered, so don't move them: SLF4J log message templates with `{}` placeholders (`logger.info("Login succeeded for user {}", id)`) stay at the call site where the format and its arguments are read together, and so do exception messages for genuinely internal invariant failures.
+
+**`Errors.LoginFailureReasons` is log-only.** Its values name why a login really failed, for the operator. They must never reach a caller — every failed-login path answers with `INVALID_CREDENTIALS_CODE`/`INVALID_CREDENTIALS_MESSAGE`, per rule 1 of the Authentication conventions above. Don't pass one to an `ApiException`.
+
 ## Common tasks
 
 ### Add a new API endpoint
@@ -66,7 +83,7 @@ Full behavior is documented in [`README.md`](README.md#authentication); these ar
 1. Define DTOs in `apps/backend/src/dto/`
 2. Define repository interface and Exposed implementation in `apps/backend/src/repository/`
 3. Define service interface and business logic implementation in `apps/backend/src/service/`
-4. Add the route handler in `apps/backend/src/routes/` calling the service — for expected error conditions (validation, not-found, etc.), `throw ApiException(statusCode, code, message)` rather than manually building an error response; StatusPages converts it to the standard envelope. See `apps/backend/README.md`'s "Error Handling & Request Logging" section. Define the `code`/`message` pair as constants in `src/constants/Constants.kt` (`BackendConstants.Errors`) rather than inlining the literals at the `throw` site — even a currently single-use error code, since these are part of the API's error contract and other endpoints may end up needing the same one.
+4. Add the route handler in `apps/backend/src/routes/` calling the service — for expected error conditions (validation, not-found, etc.), `throw ApiException(statusCode, code, message)` rather than manually building an error response; StatusPages converts it to the standard envelope. See `apps/backend/README.md`'s "Error Handling & Request Logging" section. The route path and the `code`/`message` pair are constants, not literals — see [Constants discipline](#constants-discipline) above.
 5. Wire the repository, service, and routes in `apps/backend/src/Application.kt`
 6. Test with `docker-compose up --build backend`, or faster: `pnpm run dev:backend` (or `mvn compile exec:java` from `apps/backend/`) against `docker-compose up -d postgres` — hot-reloads on `mvn compile`, no restart needed. See `apps/backend/README.md`'s "Locally, with hot reload" section.
 

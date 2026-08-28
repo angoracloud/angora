@@ -35,7 +35,7 @@ fun Application.configureSecurity(
 ) {
     install(SessionsPlugin) {
         cookie<AngoraSession>(BackendConstants.Auth.COOKIE_NAME) {
-            cookie.path = BackendConstants.Auth.COOKIE_PATH
+            cookie.path = BackendConstants.Paths.ROOT
             cookie.httpOnly = true
             // Off for plain-HTTP local dev; anything with TLS in front must set it.
             cookie.secure = System.getenv(BackendConstants.Auth.COOKIE_SECURE_ENV)?.toBoolean() ?: false

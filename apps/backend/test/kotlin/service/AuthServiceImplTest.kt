@@ -48,7 +48,7 @@ private class FakeSessionRepository : SessionRepository {
     var revokedSession: UUID? = null
     var revokedAllForUser: UUID? = null
     var active: ActiveSession? = null
-    var touched: UUID? = null
+    var lastSeenSessionId: UUID? = null
 
     override fun create(
         userId: UUID,
@@ -72,8 +72,8 @@ private class FakeSessionRepository : SessionRepository {
         return 0
     }
 
-    override fun touch(sessionId: UUID, at: Instant) {
-        touched = sessionId
+    override fun recordLastSeen(sessionId: UUID, at: Instant) {
+        lastSeenSessionId = sessionId
     }
 
     override fun deleteExpired(now: Instant): Int = 0
@@ -239,7 +239,7 @@ class AuthServiceImplTest {
         assertEquals(userId, principal?.userId)
         assertEquals(companyId, principal?.companyId)
         assertEquals(BackendConstants.RoleNames.ADMIN, principal?.roleName)
-        assertEquals(sessionId, sessions.touched)
+        assertEquals(sessionId, sessions.lastSeenSessionId)
     }
 
     @Test
@@ -248,7 +248,7 @@ class AuthServiceImplTest {
 
         assertNull(serviceFor(FakeUserRepository(null), sessions).resolvePrincipal("tok"))
         // An unusable session must not be marked seen either.
-        assertNull(sessions.touched)
+        assertNull(sessions.lastSeenSessionId)
     }
 
     @Test

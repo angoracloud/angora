@@ -2,6 +2,7 @@ package cloud.angora.service
 
 import cloud.angora.auth.UserPrincipal
 import cloud.angora.constants.BackendConstants
+import cloud.angora.constants.BackendConstants.Errors.LoginFailureReasons
 import cloud.angora.dto.AuthUserResponse
 import cloud.angora.error.ApiException
 import cloud.angora.repository.AuthUserRecord
@@ -64,11 +65,13 @@ class AuthServiceImpl(
             // Spend comparable time to a real verification before failing, so
             // that response latency doesn't disclose which emails have accounts.
             passwordService.dummyVerify()
-            throw invalidCredentials("no user for email")
+            throw invalidCredentials(LoginFailureReasons.NO_USER_FOR_EMAIL)
         }
 
         if (user.lockedUntil != null && user.lockedUntil.isAfter(now)) {
-            throw invalidCredentials("account locked until ${user.lockedUntil} (user ${user.id})")
+            throw invalidCredentials(
+                LoginFailureReasons.ACCOUNT_LOCKED.format(user.lockedUntil, user.id)
+            )
         }
 
         if (!passwordService.verify(password, user.passwordHash)) {
@@ -77,13 +80,15 @@ class AuthServiceImpl(
                 lockThreshold = BackendConstants.Auth.MAX_FAILED_LOGIN_ATTEMPTS,
                 lockedUntil = now.plus(BackendConstants.Auth.LOCKOUT_DURATION)
             )
-            throw invalidCredentials("wrong password (user ${user.id})")
+            throw invalidCredentials(LoginFailureReasons.WRONG_PASSWORD.format(user.id))
         }
 
         // Checked only after the password verifies: an attacker who doesn't know
         // the password learns nothing about the account's status either way.
         if (user.status != BackendConstants.UserStatus.ACTIVE) {
-            throw invalidCredentials("status is '${user.status}' (user ${user.id})")
+            throw invalidCredentials(
+                LoginFailureReasons.INACTIVE_STATUS.format(user.status, user.id)
+            )
         }
 
         userRepository.recordSuccessfulLogin(user.id, now)
@@ -104,7 +109,7 @@ class AuthServiceImpl(
     override fun resolvePrincipal(token: String): UserPrincipal? {
         val session = sessionRepository.findActiveByTokenHash(tokenService.hash(token)) ?: return null
 
-        sessionRepository.touch(session.sessionId, Instant.now())
+        sessionRepository.recordLastSeen(session.sessionId, Instant.now())
 
         return UserPrincipal(
             userId = session.userId,

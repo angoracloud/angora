@@ -82,11 +82,11 @@ class ServiceTokenRepositoryImplTest : PostgresRepositoryTest() {
     }
 
     @Test
-    fun `touchLastUsed records the timestamp`() {
+    fun `recordUsage records the timestamp`() {
         repository.upsertByName("discord-bot", "hash-1")
         val id = repository.findActiveByHash("hash-1")!!.id
 
-        repository.touchLastUsed(id, Instant.now())
+        repository.recordUsage(id, Instant.now())
 
         val lastUsed = transaction(database) {
             ServiceTokens.selectAll().where { ServiceTokens.id eq id }.first()[ServiceTokens.lastUsedAt]

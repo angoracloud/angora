@@ -66,7 +66,10 @@ fun Route.authRoutes(authService: AuthService) {
                 authService.logout(principal.sessionId)
                 call.sessions.clear<AngoraSession>()
 
-                call.respond(HttpStatusCode.OK, LogoutResponse(status = "logged_out"))
+                call.respond(
+                    HttpStatusCode.OK,
+                    LogoutResponse(status = BackendConstants.Auth.LogoutStatus.CURRENT_SESSION)
+                )
             }
 
             post(BackendConstants.Routes.AUTH_LOGOUT_ALL) {
@@ -75,7 +78,10 @@ fun Route.authRoutes(authService: AuthService) {
                 authService.logoutAll(principal.userId)
                 call.sessions.clear<AngoraSession>()
 
-                call.respond(HttpStatusCode.OK, LogoutResponse(status = "logged_out_everywhere"))
+                call.respond(
+                    HttpStatusCode.OK,
+                    LogoutResponse(status = BackendConstants.Auth.LogoutStatus.ALL_SESSIONS)
+                )
             }
         }
     }

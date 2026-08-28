@@ -202,6 +202,7 @@ New API endpoints go in `apps/backend` — see [`apps/backend/AGENTS.md`](apps/b
 ## Style Guidelines
 
 - Match existing code style
+- **No hardcoded literals** — each app keeps its strings, paths, and tuning values in its own constants module: backend `src/constants/Constants.kt`, frontend `src/strings.ts` (UI text) + `src/constants.ts` (config and templates). The rule applies to any change, not just to new features; see the Constants discipline sections in [`apps/backend/AGENTS.md`](apps/backend/AGENTS.md#constants-discipline) and [`apps/frontend/AGENTS.md`](apps/frontend/AGENTS.md) for what each covers
 - Use Kotlin idiomatic patterns
 - TypeScript: Use strict mode
 - Docker: Use multi-stage builds where appropriate

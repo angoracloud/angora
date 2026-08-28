@@ -25,7 +25,7 @@ class ServiceTokenServiceImpl(
     override fun verify(token: String): ServicePrincipal? {
         val record = serviceTokenRepository.findActiveByHash(tokenService.hash(token)) ?: return null
 
-        serviceTokenRepository.touchLastUsed(record.id, Instant.now())
+        serviceTokenRepository.recordUsage(record.id, Instant.now())
 
         return ServicePrincipal(tokenId = record.id, name = record.name)
     }

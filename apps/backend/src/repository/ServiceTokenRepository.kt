@@ -28,7 +28,7 @@ interface ServiceTokenRepository {
      */
     fun upsertByName(name: String, tokenHash: String)
 
-    fun touchLastUsed(id: UUID, at: Instant)
+    fun recordUsage(id: UUID, at: Instant)
 }
 
 class ServiceTokenRepositoryImpl(private val database: Database) : ServiceTokenRepository {
@@ -70,7 +70,7 @@ class ServiceTokenRepositoryImpl(private val database: Database) : ServiceTokenR
         }
     }
 
-    override fun touchLastUsed(id: UUID, at: Instant) {
+    override fun recordUsage(id: UUID, at: Instant) {
         transaction(database) {
             ServiceTokens.update({ ServiceTokens.id eq id }) {
                 it[lastUsedAt] = at
