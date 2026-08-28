@@ -1,0 +1,59 @@
+.kpi {
+  background: var(--color-surface);
+  border: 0.0625rem solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-6) var(--space-7);
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-navy);
+}
+
+.trend {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 0.125rem var(--space-3);
+  border-radius: var(--radius-pill);
+}
+
+.trendUp {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+.trendDown {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.1875rem;
+  height: 1.5rem;
+  margin-top: var(--space-5);
+}
+
+.bar {
+  flex: 1;
+  min-height: 0.125rem;
+  background: var(--color-accent-subtle);
+  border-radius: 0.0625rem;
+}
+
+.barHighlight {
+  background: var(--color-accent);
+}

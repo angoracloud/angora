@@ -1,8 +1,3 @@
-export const APP_ROUTES = {
-  HOME: '/',
-  DISCORD_BOT: '/discordbot',
-} as const
-
 export const API_ENDPOINTS = {
   HEALTH: '/api/health',
   DISCORD_SERVERS: '/api/discord/servers',
@@ -25,6 +20,25 @@ export const TIMING_CONFIG = {
   TOAST_AUTO_DISMISS_MS: 5000,
 } as const
 
+// Placeholder "current user" until real auth/user data lands — used as both
+// the avatar-initials seed and the visible label, in more than one place
+// (Sidebar, TopBar), so it lives here instead of being retyped per call site.
+export const CURRENT_USER = {
+  NAME: 'Angora Admin',
+  ROLE: 'Administrator',
+} as const
+
+export const NOT_FOUND_TITLE = 'Page not found'
+
+export const DEFAULT_ERROR_REASON = 'Network error'
+
+export const CONFIRM_MESSAGES = {
+  LEAVE_SERVER: (serverName?: string) =>
+    `Are you sure you want to disconnect ${serverName || 'this Discord server'}?`,
+  DELETE_SERVER: (serverName?: string) =>
+    `Are you sure you want to permanently delete ${serverName || 'this Discord server'}? This action cannot be undone.`,
+} as const
+
 export const TOAST_MESSAGES = {
   BOT_LEFT_SERVER: (serverName?: string) => ({
     title: 'Bot Left Server',
@@ -32,7 +46,7 @@ export const TOAST_MESSAGES = {
   }),
   SERVER_DISCONNECT_FAILED: (serverName?: string, reason?: string) => ({
     title: 'Disconnect Failed',
-    message: `Could not disconnect ${serverName || 'server'} (${reason || 'Network error'}).`,
+    message: `Could not disconnect ${serverName || 'server'} (${reason || DEFAULT_ERROR_REASON}).`,
   }),
   SERVER_DELETED: (serverName?: string) => ({
     title: 'Server Deleted',
@@ -40,6 +54,6 @@ export const TOAST_MESSAGES = {
   }),
   SERVER_DELETE_FAILED: (serverName?: string, reason?: string) => ({
     title: 'Delete Failed',
-    message: `Could not delete ${serverName || 'server'} (${reason || 'Network error'}).`,
+    message: `Could not delete ${serverName || 'server'} (${reason || DEFAULT_ERROR_REASON}).`,
   }),
 } as const

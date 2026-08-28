@@ -64,6 +64,39 @@ object Contacts : UUIDTable("contacts") {
     val updatedAt = timestamp("updated_at")
 }
 
+object Sessions : UUIDTable("sessions") {
+    val userId = reference("user_id", Users)
+    val tokenHash = text("token_hash").uniqueIndex()
+    val expiresAt = timestamp("expires_at")
+    val lastSeenAt = timestamp("last_seen_at").nullable()
+    val ipAddress = varchar("ip_address", 45).nullable()
+    val userAgent = text("user_agent").nullable()
+    val revokedAt = timestamp("revoked_at").nullable()
+    val createdAt = timestamp("created_at")
+    val updatedAt = timestamp("updated_at")
+}
+
+object UserIdentities : UUIDTable("user_identities") {
+    val userId = reference("user_id", Users)
+    val provider = varchar("provider", 50).default("local")
+    val subject = text("subject")
+    val createdAt = timestamp("created_at")
+    val updatedAt = timestamp("updated_at")
+
+    init {
+        uniqueIndex(provider, subject)
+    }
+}
+
+object ServiceTokens : UUIDTable("service_tokens") {
+    val name = varchar("name", 100).uniqueIndex()
+    val tokenHash = text("token_hash")
+    val lastUsedAt = timestamp("last_used_at").nullable()
+    val revokedAt = timestamp("revoked_at").nullable()
+    val createdAt = timestamp("created_at")
+    val updatedAt = timestamp("updated_at")
+}
+
 object DiscordServers : UUIDTable("discord_servers") {
     val guildId = varchar("guild_id", 64).uniqueIndex()
     val name = varchar("name", 255)

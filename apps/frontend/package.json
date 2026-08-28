@@ -1,6 +1,6 @@
 {
   "name": "angora-frontend",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Angora Frontend",
   "type": "module",
   "scripts": {
@@ -12,16 +12,25 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@tanstack/react-query": "5.101.4",
+    "@tanstack/react-router": "1.170.29",
+    "lucide-react": "1.31.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "typescript": "catalog:"
   },
   "devDependencies": {
     "@angora/config": "workspace:*",
+    "@babel/core": "8.0.1",
+    "@rolldown/plugin-babel": "0.2.3",
+    "@tanstack/react-query-devtools": "5.101.4",
+    "@tanstack/react-router-devtools": "1.167.1",
+    "@types/babel__core": "7.20.5",
     "@types/node": "catalog:",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.3",
+    "babel-plugin-react-compiler": "1.0.0",
     "eslint": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

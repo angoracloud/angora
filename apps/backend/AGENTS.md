@@ -16,9 +16,12 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - `src/routes/` — KTor route definitions (API layer: handles HTTP request/response and calls service layer only)
 - `src/service/` — Business logic and orchestration (Service layer: calls repository layer for data operations)
 - `src/repository/` — Exposed ORM data access (Repository layer: handles database transactions and queries)
+- `src/auth/` — Principals (`UserPrincipal`, `ServicePrincipal`), the session cookie type (`AngoraSession`), and the `requireUser()` route helper. See Authentication conventions below before changing anything here
 - `src/dto/` — Request/response DTOs and models, including the shared `ApiError`/`ApiErrorEnvelope` in `src/dto/ErrorDto.kt`
-- `src/error/ApiException.kt` — the shared exception type StatusPages maps to the error envelope; throw this from routes/services for expected 4xx/5xx conditions, see `apps/backend/README.md`'s "Error Handling & Request Logging" section
-- `src/Application.kt` — KTor plugins, dependency wiring, and route mounting
+- `src/error/` — `ApiException.kt`, the shared exception type StatusPages maps to the error envelope (throw it from routes/services for expected 4xx/5xx conditions), and `ErrorResponses.kt`, the `call.respondError(status, code, message)` helper every error response goes through. See `apps/backend/README.md`'s "Error Handling & Request Logging" section
+- `src/plugins/` — one `Application.configureX()` per concern: `Monitoring.kt` (CallId/CallLogging), `ErrorHandling.kt` (StatusPages), `Http.kt` (ContentNegotiation/CORS), `Security.kt` (Sessions/Authentication/RateLimit). Add a new file here rather than growing `Application.kt` back into a single long function
+- `src/Dependencies.kt` — builds repositories and services for one `Database`. Exposes **only services**: application setup and routes must not reach a repository directly
+- `src/Application.kt` — the module entry point: connect the database, build `Dependencies`, call the `configureX()` functions, mount routes. Keep it a readable outline; the detail belongs in `src/plugins/`
 - `src/Tables.kt` — Exposed `Table`/`UUIDTable` definitions, kept in sync with `src/main/resources/db/migration/`
 - `src/main/resources/application.yaml` — Ktor deployment config and database connection settings
 - `src/main/resources/logback.xml` — Logback config; keep the `%X{requestId}` MDC pattern so every log line stays traceable to a request
@@ -33,7 +36,45 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - Don't bypass the N-tier architecture (routes must only call services, services must call repositories for DB changes)
 - Don't change the port without updating both `application.yaml`'s `ktor.deployment.port` and `docker-compose.yml` — it's not hardcoded in `Application.kt` anymore
 - Don't remove Exposed ORM unless explicitly requested
+- Don't move `COPY src ./src` above the `dependency:go-offline` step in the `Dockerfile`. The split is what keeps Maven dependencies in a layer cached against `pom.xml` alone; collapsing it makes every source edit re-download the entire dependency tree from Maven Central, turning a seconds-long rebuild into a multi-minute one. For the same reason, don't add `-o` to the `package` step — `go-offline` doesn't fetch every plugin dependency, and offline mode would turn a short top-up download into a hard failure.
 - If `maven-shade-plugin`'s config changes, keep the `ServicesResourceTransformer` — without it, only one of the two `META-INF/services/io.ktor.server.config.ConfigLoader` providers (HOCON's, from `ktor-server-core-jvm`, and YAML's, from `ktor-server-config-yaml-jvm`) survives shading into `target/backend.jar`, silently breaking config loading in the packaged jar (though not under `mvn exec:java`, which masks it)
+
+## Authentication conventions
+
+Full behavior is documented in [`README.md`](README.md#authentication); these are the rules that are easy to break by accident.
+
+1. **Every failed login returns the identical response** — `401` / `invalid_credentials` — for an unknown email, a wrong password, and a locked, suspended, invited, or deactivated account alike. Do not add a more "helpful" message such as "no account for that email" or "your account is suspended" to any of these paths: the uniformity is what stops the endpoint being used to discover which addresses have accounts. Log the real reason instead (`AuthServiceImpl` already does), where the `requestId` MDC makes it traceable.
+
+2. **Keep the dummy hash on the unknown-email path.** `PasswordService.dummyVerify()` exists so that a login for a nonexistent account costs about the same as one with a wrong password. Deleting it as dead code turns response latency into the same enumeration oracle that rule 1 closes.
+
+3. **Two hashing schemes, not one.** Passwords use Argon2id (slow, deliberately). Session and service tokens use SHA-256, because they are 256-bit random values with nothing to brute-force and are verified on every single request. Do not "improve consistency" by moving tokens to Argon2 — that taxes the whole API for no security gain — and never move passwords to SHA-256.
+
+4. **New routes are authenticated unless there's a reason.** Wrap them in `authenticate(BackendConstants.Auth.USER_PROVIDER)` for human callers or `SERVICE_PROVIDER` for machine ones, and reach the caller with `call.requireUser()`. `/api/health` is deliberately public because container healthchecks poll it; don't gate it.
+
+5. **The session cookie carries an opaque token and nothing else.** Don't add the user id, role, or permissions to `AngoraSession` as an optimization — the `sessions` table being the single authority is what makes logout and suspension take effect on the next request. `AngoraSession` must stay `@Serializable`; Ktor's cookie serializer resolves a kotlinx serializer at install time and the app fails to start without one.
+
+6. **Don't reintroduce `anyHost()` in the CORS config.** Ktor rejects a wildcard origin combined with `allowCredentials = true`, and the cookie makes every request credentialed. Origins come from `CORS_ALLOWED_ORIGINS` and must be exact.
+
+7. **Keep the shade plugin's `<filters>` block, and keep it scoped to `org.bouncycastle:*`.** Bouncy Castle ships a signed jar; shading invalidates the signature and the packaged jar then refuses to load entirely. Don't widen the filter to `*:*` — the narrow scope is what makes a *future* signed dependency fail the build loudly instead of being silently stripped, which matters because stripping is only safe for libraries used through their plain classes (as BC is here) and breaks anything registered as a JCE provider. This failure is invisible to `mvn test`; see the README's Troubleshooting section.
+
+8. **Adding a signed or crypto dependency**: check the license first (the root AGENTS.md's Licensing section). `de.mkammerer:argon2-jvm` is LGPL-3.0 and was rejected for that reason; Bouncy Castle's `bcprov-jdk18on` is MIT. Note `bc-kotlin` is not a substitute — it wraps PKI/certificate APIs, not crypto primitives, and isn't published to Maven Central.
+
+## Constants discipline
+
+**No hardcoded literals in routes, services, repositories, or plugins — full stop.** Everything below belongs in `src/constants/Constants.kt` under `BackendConstants`, even when it currently appears exactly once, and this applies to every change, not just to adding an endpoint. The frontend holds the same rule for its own literals (see [`apps/frontend/AGENTS.md`](../frontend/AGENTS.md)); this is the backend half of it.
+
+What that covers today, and the group each belongs in:
+
+- **`Routes`** — every path segment (`AUTH_BASE`, `AUTH_LOGIN`, …). Routes are mounted from these constants, never from a string typed at the `route(...)` call.
+- **`Paths`** — path literals with no single owner. `ROOT` (`"/"`) lives here rather than being retyped as a cookie path, a healthcheck target, or a redirect.
+- **`Auth`** — provider names, cookie attributes, TTLs and sweep intervals, token sizes, hash algorithm names, the `Argon2` parameter block, lockout and rate-limit settings, and the env var names they are read from (`COOKIE_SECURE_ENV`, `CORS_ALLOWED_ORIGINS_ENV`, …). Read env vars as `System.getenv(BackendConstants.Auth.X_ENV)`, never with the name inline.
+- **`Errors`** — the `code`/`message` pair for every `ApiException` and `respondError` call, as a `_CODE`/`_MESSAGE` pair. These are the API's error contract; other endpoints end up needing the same code.
+- **API response status literals** — values a DTO carries as part of the contract, e.g. `Auth.LogoutStatus.CURRENT_SESSION` / `ALL_SESSIONS` for `LogoutResponse.status`.
+- **Server-side log reason strings** — `Errors.LoginFailureReasons`. Templated ones are `String.format` patterns applied at the call site (`ACCOUNT_LOCKED.format(user.lockedUntil, user.id)`), not string interpolation.
+
+Two things that are *not* covered, so don't move them: SLF4J log message templates with `{}` placeholders (`logger.info("Login succeeded for user {}", id)`) stay at the call site where the format and its arguments are read together, and so do exception messages for genuinely internal invariant failures.
+
+**`Errors.LoginFailureReasons` is log-only.** Its values name why a login really failed, for the operator. They must never reach a caller — every failed-login path answers with `INVALID_CREDENTIALS_CODE`/`INVALID_CREDENTIALS_MESSAGE`, per rule 1 of the Authentication conventions above. Don't pass one to an `ApiException`.
 
 ## Common tasks
 
@@ -42,7 +83,7 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 1. Define DTOs in `apps/backend/src/dto/`
 2. Define repository interface and Exposed implementation in `apps/backend/src/repository/`
 3. Define service interface and business logic implementation in `apps/backend/src/service/`
-4. Add the route handler in `apps/backend/src/routes/` calling the service — for expected error conditions (validation, not-found, etc.), `throw ApiException(statusCode, code, message)` rather than manually building an error response; StatusPages converts it to the standard envelope. See `apps/backend/README.md`'s "Error Handling & Request Logging" section. Define the `code`/`message` pair as constants in `src/constants/Constants.kt` (`BackendConstants.Errors`) rather than inlining the literals at the `throw` site — even a currently single-use error code, since these are part of the API's error contract and other endpoints may end up needing the same one.
+4. Add the route handler in `apps/backend/src/routes/` calling the service — for expected error conditions (validation, not-found, etc.), `throw ApiException(statusCode, code, message)` rather than manually building an error response; StatusPages converts it to the standard envelope. See `apps/backend/README.md`'s "Error Handling & Request Logging" section. The route path and the `code`/`message` pair are constants, not literals — see [Constants discipline](#constants-discipline) above.
 5. Wire the repository, service, and routes in `apps/backend/src/Application.kt`
 6. Test with `docker-compose up --build backend`, or faster: `pnpm run dev:backend` (or `mvn compile exec:java` from `apps/backend/`) against `docker-compose up -d postgres` — hot-reloads on `mvn compile`, no restart needed. See `apps/backend/README.md`'s "Locally, with hot reload" section.
 

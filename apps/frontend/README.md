@@ -10,7 +10,7 @@ See the [root README](../../README.md) for the one-command `docker-compose up --
 
 ## Running
 
-**Via Docker** (from the repo root): `docker-compose up --build frontend` — production build, served by nginx.
+**Via Docker** (from the repo root): `docker-compose up --build frontend` — production build, served by nginx. To bake the current commit into the sidebar's version marker (shown as `v{version} · {commit} · self-hosted`), set `GIT_SHA` before building — `.git` isn't in the Docker build context, so it can't be read automatically: `GIT_SHA=$(git rev-parse --short HEAD) docker-compose up --build frontend`. Without it, the build falls back to `unknown`.
 
 **Locally**, for hot-reloading dev server: with a backend reachable at `http://localhost:8080` (either `docker-compose up -d postgres backend` from the repo root, or running the backend locally per its own README), run:
 
@@ -41,33 +41,56 @@ The frontend is structured in an N-tier modular architecture for clean separatio
 
 ```
 src/
-├── components/          # React presentational & page components
-│   ├── home/            # Overview / Dashboard home page
-│   ├── discord/         # Discord Bot Manager page & sub-tabs
-│   │   └── tabs/        # ConnectedServersTab, SlashCommandsTab, BackendHealthTab, ServerCard
-│   └── layout/          # Layout wrappers: Header.tsx, ToastContainer.tsx
-├── context/             # React Context definitions & providers (ToastProvider)
-├── hooks/               # Custom React hooks (useDiscordServers, useNavigation, useToast)
-├── services/            # API client layer (discordService) calling backend endpoints
-├── constants.ts         # Centralized routes, API endpoints, timing config, and toast message templates
-├── types/               # TypeScript interfaces (DiscordServer, ToastNotification, etc.)
-├── App.tsx              # Main application shell with routing & ToastProvider
-├── main.tsx             # React DOM root entrypoint
-├── index.css            # Global design tokens, layout styles, and toast animations
-└── index.html           # SPA root HTML template
+├── components/
+│   ├── ui/               # Shared design-system primitives (Avatar, Button, Card, Pill,
+│   │                      #   KpiTile, SearchInput, TabButton, StatusDot, ChannelIcon, ...)
+│   │                      #   — every screen composes these, no bespoke per-screen CSS
+│   ├── layout/            # App shell: AppShell.tsx (Sidebar + TopBar + <Outlet/>),
+│   │                      #   Sidebar.tsx, TopBar.tsx, navConfig.ts, ToastContainer.tsx
+│   ├── home/              # Overview / Dashboard home page
+│   ├── discord/           # Discord Bot Manager page & sub-tabs (nested routes)
+│   │   └── tabs/          # ConnectedServersTab, SlashCommandsTab, BackendHealthTab, ServerCard
+│   ├── settings/          # SettingsPage (placeholder — sidebar switches to its admin/settings nav here)
+│   └── NotFoundPage.tsx   # Catch-all 404, still rendered inside AppShell
+├── context/              # React Context definitions & providers (ToastProvider)
+├── hooks/                # Custom React hooks (discordQueries — TanStack Query wrappers, useToast)
+├── services/             # API client layer (discordService) calling backend endpoints
+├── router.tsx            # TanStack Router route tree (createRootRoute/createRoute/createRouter),
+│                          #   AppShell as the root route's component
+├── routes.ts             # ROUTES (full paths, for Link/navigate/redirect) and ROUTE_SEGMENTS
+│                          #   (bare segments, for router.tsx's createRoute) — one source of truth
+├── constants.ts          # API endpoints, timing config, and parameterized confirm/toast
+│                          #   message templates
+├── strings.ts            # Static UI text (headings, labels, empty/loading/error states),
+│                          #   grouped per screen — see apps/frontend/AGENTS.md's constants-
+│                          #   discipline note; no hardcoded strings live in components
+├── types/                # TypeScript interfaces (DiscordServer, ToastNotification, etc.)
+├── App.tsx               # QueryClientProvider + ToastProvider + <RouterProvider router={router}/>
+├── main.tsx              # React DOM root entrypoint
+├── index.css             # Global design tokens (color/space/radius/type/shadow) + reset + base
+└── index.html            # SPA root HTML template
 ```
+
+### Design system
+
+- **Tokens (`index.css`)**: a single `:root` block of CSS custom properties — `--color-*`, `--space-*`, `--radius-*`, `--font-*`, `--shadow-*` — is the only global stylesheet. Everything else is scoped per component.
+- **CSS Modules, one pair per component**: every component in `components/ui/` and `components/layout/` ships as `Name.tsx` + `Name.module.css` (e.g. `Avatar.tsx`/`Avatar.module.css`). Import styles as `import styles from './Name.module.css'` and reference classes via `styles.foo` — never a hardcoded class-name string, since CSS Modules hash/scope each class per file. The one exception is a component that intentionally reuses another component's visual style without rendering that component directly (e.g. `DiscordPage`'s `NavLink` tabs are styled like `TabButton` without being one) — those import the other component's `.module.css` directly (`import tabButtonStyles from '../ui/TabButton.module.css'`) rather than duplicating the CSS.
+- **No bespoke CSS per screen**: page components (`home/`, `discord/`) compose `components/ui/` primitives and use inline `style={{...}}` only for one-off layout glue (flex/grid wrappers) referencing the same CSS custom properties — they don't define their own CSS files.
+- **Fonts**: Hanken Grotesk (UI text) + JetBrains Mono (ids, counts, code), loaded via Google Fonts `<link>` tags in `index.html`.
+- **React Compiler**: build-time auto-memoization (`babel-plugin-react-compiler`, wired via `@vitejs/plugin-react`'s `reactCompilerPreset()` + `@rolldown/plugin-babel` in `vite.config.ts`) — components don't hand-write `useMemo`/`useCallback`/`React.memo` for routine cases. Runs in the default, conservative `compilationMode: 'infer'`, so not every component gets compiled (that's expected — the compiler is purely additive, an uncompiled component just behaves like normal React); see `apps/frontend/AGENTS.md` for a known upstream limitation with the more aggressive `'all'` mode.
 
 ### Features & Systems
 
-- **Centralized Constants (`constants.ts`)**: All routes (`APP_ROUTES`), backend endpoints (`API_ENDPOINTS`), timing intervals (`TIMING_CONFIG`), and toast notifications (`TOAST_MESSAGES`) are declared once as type-safe constants.
+- **Routing (`@tanstack/react-router`, `router.tsx`, `routes.ts`)**: a code-based route tree (not file-based/codegen), with `AppShell` as the root route's component (`Sidebar` + `TopBar` + `<Outlet/>`). Each leaf route sets `staticData: { title }` (or `{ crumbs }`) that `TopBar` reads via `useMatches()` — no prop-drilled page titles. `DiscordPage`'s tabs are nested routes; each tab reads its own data directly via the TanStack Query hooks below (no outlet-context prop-threading needed — same query key means shared cache, not a duplicate request).
+- **Data fetching (`@tanstack/react-query`, `hooks/discordQueries.ts`)**: `useDiscordServersQuery`/`useDiscordInviteQuery`/`useLeaveServerMutation` wrap the Discord API calls with automatic polling (`refetchInterval`), window-focus refetching, loading/error state, and cache dedup across every component that calls them (including the sidebar's live server-count badge) — replacing what used to be a hand-rolled `setInterval` + focus-listener + `isMounted`-guard hook.
+- **Centralized Constants (`constants.ts`) and Strings (`strings.ts`)**: backend endpoints (`API_ENDPOINTS`), timing intervals (`TIMING_CONFIG`), and parameterized confirm/toast message templates (`CONFIRM_MESSAGES`/`TOAST_MESSAGES`) live in `constants.ts`; every other piece of static UI text (headings, button/link labels, empty/loading/error-state copy, placeholders, aria-labels) lives in `strings.ts`, grouped one export per screen/component — no hardcoded strings in component JSX, even one-off ones. See `apps/frontend/AGENTS.md`'s constants-discipline note for the full rule, including which identical-text constants (like page titles) are deliberately shared across files. Route paths live separately in `routes.ts` (`ROUTES`/`ROUTE_SEGMENTS`), since they're consumed by both the route tree and navigation call sites.
 - **Contextual Toast System**: A React Context (`ToastProvider` + `useToast`) provides auto-dismissing feedback notifications for user actions (bot leave, connection failures) without intercepting generic window errors.
-- **Passive Background Auto-Sync**: `useDiscordServers` polls server states silently in the background and on window focus, keeping server member counts and connection statuses current without disruptive full-page spinners.
 
 ## Notes
 
 - **Vite root is `src/`**: `vite.config.ts` sets `root: 'src'` and `build.outDir: '../dist'` because `index.html` lives in `src/`, not the project root. Its script tag references `/main.tsx` (relative to that root), not `/src/main.tsx`.
 - **Two `tsconfig` files, two purposes**: `tsconfig.json` extends `@angora/config/typescript/react-app.json` and covers `src/`; `tsconfig.node.json` extends `@angora/config/typescript/base.json` (not `react-app.json`) and covers `vite.config.ts` itself, which runs under Node, not the browser. That's why there are two separate typecheck commands above instead of one.
-- **Path aliases**: TypeScript 7 dropped `baseUrl`, so `"paths": {"@/*": ["./src/*"]}` is set with no `baseUrl`.
+- **Path aliases**: TypeScript 7 dropped `baseUrl`, so `"paths": {"@/*": ["./src/*"]}` is set with no `baseUrl`. **This alias is not wired into Vite's `resolve.alias`** — it type-checks but 404s at runtime/build, so use relative imports (`../ui/Avatar`) until someone adds the matching Vite config.
 - **API proxy**: `/api` requests are proxied to the backend — via `vite.config.ts` (`http://localhost:8080`) in the local dev server, via `nginx.conf` (`http://backend:8080`) in the production container.
 
 ## Troubleshooting

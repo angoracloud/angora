@@ -23,5 +23,3 @@ export interface ToastNotification {
   title: string
   message: string
 }
-
-export type DiscordManagerTab = 'discord' | 'commands' | 'health'

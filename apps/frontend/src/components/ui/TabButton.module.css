@@ -1,0 +1,31 @@
+.tabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 0.0625rem solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-control);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+
+/* The router's Link renders <a>, and the global `a:hover` rule in index.css
+   would otherwise win on specificity and recolor the text on hover even
+   though nothing else about a tab changes on hover. */
+.tabBtn:hover {
+  color: var(--color-text-secondary);
+}
+.active:hover {
+  color: var(--color-accent);
+}

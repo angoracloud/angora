@@ -55,7 +55,9 @@ See [README.md](README.md) for the full quickstart, service list, and project st
 
 ## Environment Variables
 
-`docker-compose.yml` sources its configurable values from environment variables, each with a `:-default` fallback matching the original hardcoded values — so `docker-compose up --build` still works with zero setup even if no `.env` file exists. The variables: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`. `.env.example` documents all of them; `.env.production.example` is the same set with a placeholder password that must be replaced.
+`docker-compose.yml` sources its configurable values from environment variables, each with a `:-default` fallback matching the original hardcoded values — so `docker-compose up --build` still works with zero setup even if no `.env` file exists. The variables: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `SERVICE_TOKEN_DISCORD_BOT`, `COOKIE_SECURE`, `CORS_ALLOWED_ORIGINS`. `.env.example` documents all of them; `.env.production.example` is the same set with placeholder secrets that must be replaced.
+
+`SERVICE_TOKEN_DISCORD_BOT` is read by **two** services (`backend` and `discord-bot`) and they must see the same value — the backend registers its hash, the bot presents the raw token. Changing it in one place only breaks guild syncing with a 401.
 
 - `.env` is auto-loaded by docker-compose from the project root (local dev, optional).
 - `.env.production` is **not** auto-loaded — it must be passed explicitly with `docker-compose --env-file .env.production up -d --build`. That's intentional: a production run should never happen by accident.
@@ -65,9 +67,11 @@ See [README.md](README.md) for the full quickstart, service list, and project st
 
 ## API Communication
 
-- Frontend → Backend: Use relative path `/api/...` (proxied via nginx)
-- Bot → Backend: Use `http://backend:8080/...` (Docker network DNS)
+- Frontend → Backend: Use relative path `/api/...` (proxied via nginx). Same-origin, so the session cookie is sent automatically — no `Authorization` header and no CORS config needed.
+- Bot → Backend: Use `http://backend:8080/...` (Docker network DNS), with `Authorization: Bearer ${SERVICE_TOKEN_DISCORD_BOT}`. Being on the Docker network is no longer sufficient on its own.
 - External → Backend: Use `http://localhost:8080/...`
+
+Backend routes are authenticated by default — see [`apps/backend/AGENTS.md`](apps/backend/AGENTS.md#authentication-conventions) for which provider to wrap a new route in, and the rules around login responses that are easy to break by accident. `/api/health` is deliberately public because container healthchecks poll it.
 
 ## Testing Commands
 
@@ -110,6 +114,7 @@ See each module's own `AGENTS.md` for `--filter`-scoped equivalents and module-s
 - **Issue/branch naming**: every change traces back to an issue. Issues get auto-prefixed `ANGORA-<number>` on open (`.github/workflows/issue-title-prefix.yml`). Branches must be named `ANGORA-<issue-number>-short-description` — a repository ruleset rejects any new branch that isn't `main` or `ANGORA-*`, so always create branches with this prefix (GitHub's own "Create a branch" button does not generate it for you; type it explicitly).
 - **CI** (`.github/workflows/ci.yml`): runs on every PR and every push to `main` — `backend` (`mvn test`), `frontend-bots` (lint, format:check, typecheck, test, build), `guardrails` (`check:dep-age`). All third-party Actions are pinned to commit SHA, not floating tags.
 - **Deploy** (`.github/workflows/deploy.yml`): manual `workflow_dispatch` only, with TODO placeholder steps — intentionally inert until a real deploy target exists. Don't change its trigger to run automatically without filling in the real steps first.
+- **Reviewing a PR**: follow [`.agents/skills/pr-review/SKILL.md`](.agents/skills/pr-review/SKILL.md) — a read-only, step-by-step review procedure covering requirements traceability, test quality, readability, dependency licensing, security, and conformance with these guidelines. It reads the rules from these files at review time rather than restating them, so it can't go stale. Claude Code picks it up automatically as a skill via the `.claude/skills/pr-review` symlink; other agents should read the file directly. It never approves a PR — the required human approval above is deliberately outside its reach.
 
 ## Success Criteria
 
@@ -135,6 +140,10 @@ A task is complete when:
 | Node.js | 24.x | Active LTS; used for frontend and bots |
 | @types/node | 24.13.3 | Matches the Node 24 runtime pinned everywhere above; shared via the pnpm catalog by `apps/frontend`, `packages/config`, and all three bots (frontend/`packages/config` don't execute Node code themselves, but need it so `vite`/`vitest`'s optional peer dependency resolves to one consistent version instead of floating) |
 | React | 19.x | Latest stable |
+| @tanstack/react-router | 1.170.29 | Frontend routing (replaced `react-router`). Code-based routing — a single route tree in `apps/frontend/src/router.tsx`, not file-based/codegen (no `@tanstack/router-plugin`) — revisit only if the route count grows a lot. Uses the **data router** (`createRouter`/`RouterProvider`), since `TopBar` reads route `staticData` via `useMatches()` |
+| @tanstack/react-query | 5.101.4 | Frontend data-fetching/caching for any async server state — see `apps/frontend/src/hooks/discordQueries.ts` for the pattern. Don't hand-roll fetch/poll/loading-state logic (`setInterval` + focus listeners + `isMounted` guards) — use `useQuery`'s `refetchInterval`/`refetchOnWindowFocus` and let the cache dedupe across components instead of prop-drilling |
+| babel-plugin-react-compiler | 1.0.0 | React Compiler, wired into `apps/frontend/vite.config.ts` via `@vitejs/plugin-react@6`'s `reactCompilerPreset()` + `@rolldown/plugin-babel` (its own internal Babel support was dropped in v6, so the plugin's old `babel.plugins` option no longer works). Runs in the default `compilationMode: 'infer'`; don't switch to `'all'` — see the comment above the `plugins` array in `vite.config.ts` for the upstream bug it hits and what would justify revisiting it |
+| lucide-react | 1.31.0 | Frontend icon set; newest version clearing the 7-day age guardrail as of this pinning |
 | TypeScript | 7.x | Latest stable (Go-based compiler); dropped `baseUrl` and `moduleResolution: "node"` |
 | Vite | 8.x | Latest stable, for frontend |
 | Vitest | 4.x | Test runner for frontend + all 3 bots — see each module's README for current test coverage status |
@@ -194,6 +203,7 @@ New API endpoints go in `apps/backend` — see [`apps/backend/AGENTS.md`](apps/b
 ## Style Guidelines
 
 - Match existing code style
+- **No hardcoded literals** — each app keeps its strings, paths, and tuning values in its own constants module: backend `src/constants/Constants.kt`, frontend `src/strings.ts` (UI text) + `src/constants.ts` (config and templates). The rule applies to any change, not just to new features; see the Constants discipline sections in [`apps/backend/AGENTS.md`](apps/backend/AGENTS.md#constants-discipline) and [`apps/frontend/AGENTS.md`](apps/frontend/AGENTS.md) for what each covers
 - Use Kotlin idiomatic patterns
 - TypeScript: Use strict mode
 - Docker: Use multi-stage builds where appropriate

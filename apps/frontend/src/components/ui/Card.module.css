@@ -1,0 +1,42 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 0.0625rem solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.danger {
+  border-color: #f7cfcd;
+  background: #fdf7f7;
+}
+
+.paddingMd {
+  padding: var(--space-8);
+}
+.paddingSm {
+  padding: var(--space-5);
+}
+.paddingNone {
+  padding: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding-bottom: var(--space-5);
+  margin-bottom: var(--space-5);
+  border-bottom: 0.0625rem solid var(--color-border-subtle);
+}
+
+.header h3 {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-navy);
+}
+
+.danger .header h3 {
+  color: var(--color-danger-text);
+}

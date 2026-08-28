@@ -1,125 +1,91 @@
 package cloud.angora
 
 import cloud.angora.constants.BackendConstants
-import cloud.angora.dto.ApiError
-import cloud.angora.dto.ApiErrorEnvelope
-import cloud.angora.error.ApiException
-import cloud.angora.repository.DiscordRepositoryImpl
-import cloud.angora.repository.HealthRepositoryImpl
+import cloud.angora.plugins.configureErrorHandling
+import cloud.angora.plugins.configureHttp
+import cloud.angora.plugins.configureMonitoring
+import cloud.angora.plugins.configureSecurity
+import cloud.angora.routes.authRoutes
 import cloud.angora.routes.discordRoutes
 import cloud.angora.routes.healthRoutes
-import cloud.angora.service.DiscordServiceImpl
-import cloud.angora.service.HealthServiceImpl
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import io.ktor.server.application.*
-import io.ktor.server.netty.*
-import io.ktor.server.plugins.callid.*
-import io.ktor.server.plugins.calllogging.*
-import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.cors.routing.*
-import io.ktor.server.plugins.statuspages.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
-import kotlinx.serialization.json.Json
+import cloud.angora.service.AuthService
+import io.ktor.server.application.Application
+import io.ktor.server.application.log
+import io.ktor.server.netty.EngineMain
+import io.ktor.server.routing.routing
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.slf4j.event.Level
-import java.util.UUID
+import kotlin.time.toKotlinDuration
 
 fun main(args: Array<String>) {
     EngineMain.main(args)
 }
 
 fun Application.module() {
-    val dbUrl = environment.config.property("database.url").getString()
-    val dbUser = environment.config.property("database.user").getString()
-    val dbPassword = environment.config.property("database.password").getString()
+    val database = connectDatabase()
+    val dependencies = Dependencies(database)
 
-    Flyway.configure()
-        .dataSource(dbUrl, dbUser, dbPassword)
-        .load()
-        .migrate()
+    configureMonitoring()
+    configureErrorHandling()
+    configureHttp()
+    configureSecurity(dependencies.authService, dependencies.serviceTokenService)
 
-    val database = Database.connect(
-        url = dbUrl,
-        driver = BackendConstants.DatabaseDefaults.DRIVER_CLASS,
-        user = dbUser,
-        password = dbPassword
+    dependencies.serviceTokenService.register(
+        name = BackendConstants.Auth.DISCORD_BOT_TOKEN_NAME,
+        token = System.getenv(BackendConstants.Auth.SERVICE_TOKEN_DISCORD_BOT_ENV)
     )
 
-    install(CallId) {
-        header(HttpHeaders.XRequestId)
-        verify { it.isNotBlank() }
-        generate { UUID.randomUUID().toString() }
-    }
+    startExpiredSessionSweep(dependencies.authService)
 
-    install(CallLogging) {
-        level = Level.INFO
-        callIdMdc("requestId")
-    }
-
-    install(StatusPages) {
-        exception<ApiException> { call, cause ->
-            call.respond(
-                cause.statusCode,
-                ApiErrorEnvelope(ApiError(cause.code, cause.message, call.callId ?: "unknown"))
-            )
-        }
-        exception<Throwable> { call, cause ->
-            call.application.log.error("Unhandled exception processing ${call.request.uri}", cause)
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                ApiErrorEnvelope(ApiError("internal_error", "An unexpected error occurred", call.callId ?: "unknown"))
-            )
-        }
-        status(HttpStatusCode.NotFound) { call, status ->
-            call.respond(
-                status,
-                ApiErrorEnvelope(ApiError("not_found", "The requested resource was not found", call.callId ?: "unknown"))
-            )
-        }
-    }
-
-    install(CORS) {
-        anyHost()
-        allowMethod(HttpMethod.Options)
-        allowMethod(HttpMethod.Put)
-        allowMethod(HttpMethod.Patch)
-        allowMethod(HttpMethod.Delete)
-        allowHeader(HttpHeaders.ContentType)
-        allowHeader(HttpHeaders.Authorization)
-        allowNonSimpleContentTypes = true
-    }
-
-    install(ContentNegotiation) {
-        json(Json {
-            prettyPrint = true
-            isLenient = true
-            encodeDefaults = true
-        })
-    }
-
-    val discordClientId = System.getenv("DISCORD_CLIENT_ID") ?: BackendConstants.Discord.DEFAULT_CLIENT_ID
-    val discordBotUrl = System.getenv("DISCORD_BOT_URL") ?: BackendConstants.Discord.DEFAULT_BOT_URL
-
-    // Repositories (Data Access Layer)
-    val healthRepository = HealthRepositoryImpl(database)
-    val discordRepository = DiscordRepositoryImpl(database)
-
-    // Services (Business Logic Layer)
-    val healthService = HealthServiceImpl(healthRepository)
-    val discordService = DiscordServiceImpl(
-        discordRepository = discordRepository,
-        clientId = discordClientId,
-        botUrl = discordBotUrl
-    )
-
-    // Routing (API / Controller Layer)
     routing {
-        healthRoutes(healthService)
-        discordRoutes(discordService)
+        // Deliberately unauthenticated: container healthchecks poll it.
+        healthRoutes(dependencies.healthService)
+        authRoutes(dependencies.authService)
+        discordRoutes(dependencies.discordService)
     }
 }
 
+/**
+ * Runs Flyway, then opens the Exposed connection — in that order, so the schema is
+ * always current before any query can run.
+ */
+private fun Application.connectDatabase(): Database {
+    val url = environment.config.property("database.url").getString()
+    val user = environment.config.property("database.user").getString()
+    val password = environment.config.property("database.password").getString()
+
+    Flyway.configure()
+        .dataSource(url, user, password)
+        .load()
+        .migrate()
+
+    return Database.connect(
+        url = url,
+        driver = BackendConstants.DatabaseDefaults.DRIVER_CLASS,
+        user = user,
+        password = password
+    )
+}
+
+/**
+ * Housekeeping only: expired sessions are already refused at lookup time, so this
+ * just stops the table growing without bound.
+ */
+private fun Application.startExpiredSessionSweep(authService: AuthService) {
+    launch {
+        while (isActive) {
+            try {
+                val removed = authService.purgeExpiredSessions()
+                if (removed > 0) {
+                    log.info("Swept {} expired session(s)", removed)
+                }
+            } catch (e: Exception) {
+                log.warn("Expired-session sweep failed; retrying next interval", e)
+            }
+            delay(BackendConstants.Auth.SESSION_SWEEP_INTERVAL.toKotlinDuration())
+        }
+    }
+}
