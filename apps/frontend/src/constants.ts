@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
   DISCORD_SERVERS: '/api/discord/servers',
   DISCORD_BOT_INVITE: '/api/discord/bot/invite',
   DISCORD_SERVER_BY_ID: (id: string) => `/api/discord/servers/${id}`,
+  DISCORD_SERVER_LEAVE: (id: string) => `/api/discord/servers/${id}/leave`,
 } as const
 
 export const DISCORD_CONFIG = {
@@ -32,5 +33,13 @@ export const TOAST_MESSAGES = {
   SERVER_DISCONNECT_FAILED: (serverName?: string, reason?: string) => ({
     title: 'Disconnect Failed',
     message: `Could not disconnect ${serverName || 'server'} (${reason || 'Network error'}).`,
+  }),
+  SERVER_DELETED: (serverName?: string) => ({
+    title: 'Server Deleted',
+    message: `"${serverName || 'Discord server'}" has been deleted.`,
+  }),
+  SERVER_DELETE_FAILED: (serverName?: string, reason?: string) => ({
+    title: 'Delete Failed',
+    message: `Could not delete ${serverName || 'server'} (${reason || 'Network error'}).`,
   }),
 } as const

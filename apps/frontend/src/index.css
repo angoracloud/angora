@@ -246,6 +246,7 @@ body {
   align-items: center;
   gap: 1rem;
   margin-bottom: 1rem;
+  position: relative;
 }
 
 .server-icon {
@@ -261,6 +262,7 @@ body {
   color: white;
   overflow: hidden;
   border: 2px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .server-icon img {
@@ -271,17 +273,115 @@ body {
 
 .server-info {
   flex: 1;
+  min-width: 0;
 }
 
 .server-name {
   font-size: 1.1rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .server-id {
   font-size: 0.75rem;
   color: var(--text-muted);
   font-family: monospace;
+}
+
+/* Server Card 3-dots Menu */
+.server-card-menu {
+  position: relative;
+  margin-left: auto;
+  align-self: flex-start;
+  margin-top: -0.25rem;
+  margin-right: -0.25rem;
+}
+
+.menu-trigger-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  line-height: 1;
+}
+
+.menu-trigger-btn:hover,
+.menu-trigger-btn[aria-expanded='true'] {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-color);
+}
+
+.server-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.6),
+    0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  padding: 0.35rem;
+  min-width: 150px;
+  z-index: 50;
+  backdrop-filter: blur(16px);
+  animation: dropdownFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.server-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.server-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.server-dropdown-item.danger {
+  color: var(--danger);
+}
+
+.server-dropdown-item.danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+.dropdown-item-icon {
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
 .server-meta {

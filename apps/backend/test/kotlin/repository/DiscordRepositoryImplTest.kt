@@ -70,4 +70,43 @@ class DiscordRepositoryImplTest : PostgresRepositoryTest() {
     fun `markServerLeft returns null for an unknown id or guildId`() {
         assertNull(repository.markServerLeft("does-not-exist"))
     }
+
+    @Test
+    fun `softDelete by guildId sets deletedAt and removes server from findAll`() {
+        repository.upsertSyncedGuild(SyncGuildRequest(guildId = "guild-4", name = "Guild Four"))
+        assertEquals(1, repository.findAll().size)
+
+        val result = repository.softDelete("guild-4")
+
+        assertEquals("guild-4", result)
+        assertTrue(repository.findAll().isEmpty())
+    }
+
+    @Test
+    fun `softDelete by internal id sets deletedAt and removes server from findAll`() {
+        repository.upsertSyncedGuild(SyncGuildRequest(guildId = "guild-5", name = "Guild Five"))
+        val id = repository.findAll().single().id
+
+        val result = repository.softDelete(id)
+
+        assertEquals("guild-5", result)
+        assertTrue(repository.findAll().isEmpty())
+    }
+
+    @Test
+    fun `softDelete returns null for an unknown id or guildId`() {
+        assertNull(repository.softDelete("does-not-exist"))
+    }
+
+    @Test
+    fun `upsertSyncedGuild restores a soft-deleted server`() {
+        repository.upsertSyncedGuild(SyncGuildRequest(guildId = "guild-6", name = "Guild Six"))
+        repository.softDelete("guild-6")
+        assertTrue(repository.findAll().isEmpty())
+
+        repository.upsertSyncedGuild(SyncGuildRequest(guildId = "guild-6", name = "Guild Six Restored"))
+        val all = repository.findAll()
+        assertEquals(1, all.size)
+        assertEquals("Guild Six Restored", all[0].name)
+    }
 }

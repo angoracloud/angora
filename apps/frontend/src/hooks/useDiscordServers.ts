@@ -108,11 +108,45 @@ export function useDiscordServers() {
     [addToast],
   )
 
+  // Soft-delete server action
+  const deleteServer = useCallback(
+    async (id: string, serverName?: string) => {
+      if (
+        !confirm(
+          `Are you sure you want to delete "${serverName || 'this Discord server'}"? This will remove it from the dashboard.`,
+        )
+      ) {
+        return
+      }
+
+      try {
+        await discordService.deleteServer(id)
+        // Optimistically remove from UI
+        setServers((prev) =>
+          prev.filter((s) => s.id !== id && s.guildId !== id),
+        )
+
+        // Dispatch success toast
+        const toastData = TOAST_MESSAGES.SERVER_DELETED(serverName)
+        addToast('info', toastData.title, toastData.message)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Network error'
+        const toastData = TOAST_MESSAGES.SERVER_DELETE_FAILED(
+          serverName,
+          message,
+        )
+        addToast('error', toastData.title, toastData.message)
+      }
+    },
+    [addToast],
+  )
+
   return {
     servers,
     inviteData,
     loading,
     error,
     leaveServer,
+    deleteServer,
   }
 }

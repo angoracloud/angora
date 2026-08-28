@@ -12,6 +12,7 @@ interface DiscordPageProps {
   error: string | null
   onNavigate: (path: string) => void
   onLeaveServer: (id: string, name: string) => void
+  onDeleteServer: (id: string, name: string) => void
 }
 
 export function DiscordPage({
@@ -21,6 +22,7 @@ export function DiscordPage({
   error,
   onNavigate,
   onLeaveServer,
+  onDeleteServer,
 }: DiscordPageProps) {
   const [activeTab, setActiveTab] = useState<DiscordManagerTab>('discord')
   const inviteUrl = inviteData?.inviteUrl || DISCORD_CONFIG.FALLBACK_INVITE_URL
@@ -98,6 +100,7 @@ export function DiscordPage({
           loading={loading}
           error={error}
           onLeaveServer={onLeaveServer}
+          onDeleteServer={onDeleteServer}
         />
       )}
 

@@ -8,6 +8,7 @@ interface ConnectedServersTabProps {
   loading: boolean
   error: string | null
   onLeaveServer: (id: string, name: string) => void
+  onDeleteServer: (id: string, name: string) => void
 }
 
 export function ConnectedServersTab({
@@ -16,6 +17,7 @@ export function ConnectedServersTab({
   loading,
   error,
   onLeaveServer,
+  onDeleteServer,
 }: ConnectedServersTabProps) {
   const inviteUrl = inviteData?.inviteUrl || DISCORD_CONFIG.FALLBACK_INVITE_URL
 
@@ -96,6 +98,7 @@ export function ConnectedServersTab({
             server={server}
             inviteUrl={inviteData?.inviteUrl}
             onLeave={onLeaveServer}
+            onDelete={onDeleteServer}
           />
         ))}
       </div>

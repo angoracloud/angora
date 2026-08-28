@@ -19,6 +19,7 @@ interface DiscordService {
      * (running via `syncAllGuilds` every 60s) will reconcile the true status automatically.
      */
     fun leaveServer(idOrGuildId: String): DeleteServerResponse?
+    fun deleteServer(idOrGuildId: String): DeleteServerResponse?
     fun syncGuild(req: SyncGuildRequest)
     fun getInviteInfo(): DiscordInviteResponse
 }
@@ -41,6 +42,14 @@ class DiscordServiceImpl(
         notifyBotToLeaveGuild(targetGuildId)
 
         return DeleteServerResponse(status = "updated", guildId = targetGuildId, botJoined = false)
+    }
+
+    override fun deleteServer(idOrGuildId: String): DeleteServerResponse? {
+        val targetGuildId = discordRepository.softDelete(idOrGuildId) ?: return null
+
+        notifyBotToLeaveGuild(targetGuildId)
+
+        return DeleteServerResponse(status = "deleted", guildId = targetGuildId, botJoined = false)
     }
 
     override fun syncGuild(req: SyncGuildRequest) {

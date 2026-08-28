@@ -17,7 +17,7 @@ fun Route.discordRoutes(discordService: DiscordService) {
             call.respond(servers)
         }
 
-        delete(BackendConstants.Routes.DISCORD_SERVERS_BY_ID) {
+        post(BackendConstants.Routes.DISCORD_SERVERS_LEAVE) {
             val idParam = call.parameters["id"]
             if (idParam.isNullOrBlank()) {
                 throw ApiException(
@@ -28,6 +28,25 @@ fun Route.discordRoutes(discordService: DiscordService) {
             }
 
             val response = discordService.leaveServer(idParam)
+                ?: throw ApiException(
+                    HttpStatusCode.NotFound,
+                    BackendConstants.Errors.SERVER_NOT_FOUND_CODE,
+                    BackendConstants.Errors.SERVER_NOT_FOUND_MESSAGE
+                )
+            call.respond(HttpStatusCode.OK, response)
+        }
+
+        delete(BackendConstants.Routes.DISCORD_SERVERS_BY_ID) {
+            val idParam = call.parameters["id"]
+            if (idParam.isNullOrBlank()) {
+                throw ApiException(
+                    HttpStatusCode.BadRequest,
+                    BackendConstants.Errors.MISSING_SERVER_ID_CODE,
+                    BackendConstants.Errors.MISSING_SERVER_ID_MESSAGE
+                )
+            }
+
+            val response = discordService.deleteServer(idParam)
                 ?: throw ApiException(
                     HttpStatusCode.NotFound,
                     BackendConstants.Errors.SERVER_NOT_FOUND_CODE,

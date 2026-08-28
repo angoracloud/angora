@@ -8,6 +8,7 @@ object BackendConstants {
         const val DISCORD_BASE = "/api/discord"
         const val DISCORD_SERVERS = "/servers"
         const val DISCORD_SERVERS_BY_ID = "/servers/{id}"
+        const val DISCORD_SERVERS_LEAVE = "/servers/{id}/leave"
         const val DISCORD_BOT_SYNC = "/bot/sync"
         const val DISCORD_BOT_INVITE = "/bot/invite"
     }

@@ -9,7 +9,7 @@ import { APP_ROUTES } from './constants'
 
 function AppContent() {
   const { currentPath, navigate } = useNavigation()
-  const { servers, inviteData, loading, error, leaveServer } =
+  const { servers, inviteData, loading, error, leaveServer, deleteServer } =
     useDiscordServers()
 
   return (
@@ -26,6 +26,7 @@ function AppContent() {
           error={error}
           onNavigate={navigate}
           onLeaveServer={leaveServer}
+          onDeleteServer={deleteServer}
         />
       )}
 
