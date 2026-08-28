@@ -99,14 +99,12 @@ class DiscordRepositoryImplTest : PostgresRepositoryTest() {
     }
 
     @Test
-    fun `upsertSyncedGuild restores a soft-deleted server`() {
+    fun `upsertSyncedGuild does not un-delete a soft-deleted server`() {
         repository.upsertSyncedGuild(SyncGuildRequest(guildId = "guild-6", name = "Guild Six"))
         repository.softDelete("guild-6")
         assertTrue(repository.findAll().isEmpty())
 
         repository.upsertSyncedGuild(SyncGuildRequest(guildId = "guild-6", name = "Guild Six Restored"))
-        val all = repository.findAll()
-        assertEquals(1, all.size)
-        assertEquals("Guild Six Restored", all[0].name)
+        assertTrue(repository.findAll().isEmpty())
     }
 }

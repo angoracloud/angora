@@ -115,7 +115,6 @@ class DiscordRepositoryImpl(private val database: Database) : DiscordRepository 
                     it[memberCount] = req.memberCount
                     it[botJoined] = req.botJoined
                     it[updatedAt] = now
-                    it[deletedAt] = null
                 }
             } else {
                 DiscordServers.insert {
@@ -127,7 +126,6 @@ class DiscordRepositoryImpl(private val database: Database) : DiscordRepository 
                     it[botJoined] = req.botJoined
                     it[createdAt] = now
                     it[updatedAt] = now
-                    it[deletedAt] = null
                 }
             }
         }
