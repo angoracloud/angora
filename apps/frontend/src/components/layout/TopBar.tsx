@@ -3,6 +3,7 @@ import { Link, useMatches, useNavigate } from '@tanstack/react-router'
 import { Avatar } from '../ui/Avatar'
 import { IconButton } from '../ui/IconButton'
 import { SearchInput } from '../ui/SearchInput'
+import { CURRENT_USER, NOT_FOUND_TITLE } from '../../constants'
 import { ROUTES } from '../../routes'
 import styles from './TopBar.module.css'
 
@@ -20,7 +21,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   // No match carries staticData for the not-found fallback (it isn't a
   // matched leaf route), so fall back to a title consistent with
   // NotFoundPage's own heading instead of rendering an empty <h1>.
-  const { title = 'Page not found', crumbs } = match?.staticData ?? {}
+  const { title = NOT_FOUND_TITLE, crumbs } = match?.staticData ?? {}
 
   return (
     <div className={styles.top}>
@@ -63,7 +64,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           label="Settings"
           onClick={() => navigate({ to: ROUTES.SETTINGS })}
         />
-        <Avatar name="Angora Admin" size="md" />
+        <Avatar name={CURRENT_USER.NAME} size="md" />
       </div>
     </div>
   )

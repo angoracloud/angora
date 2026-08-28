@@ -1,5 +1,6 @@
 import {
   CONFIRM_MESSAGES,
+  DEFAULT_ERROR_REASON,
   DISCORD_CONFIG,
   TOAST_MESSAGES,
 } from '../../../constants'
@@ -32,7 +33,8 @@ export function ConnectedServersTab() {
           addToast('info', toastData.title, toastData.message)
         },
         onError: (err) => {
-          const message = err instanceof Error ? err.message : 'Network error'
+          const message =
+            err instanceof Error ? err.message : DEFAULT_ERROR_REASON
           const toastData = TOAST_MESSAGES.SERVER_DISCONNECT_FAILED(
             serverName,
             message,

@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Avatar } from '../ui/Avatar'
+import { CURRENT_USER } from '../../constants'
 import { MAIN_NAV, SETTINGS_NAV } from './navConfig'
 import styles from './Sidebar.module.css'
 
@@ -50,10 +51,10 @@ export function Sidebar({ mode = 'main', counts, open = false }: SidebarProps) {
         v{__APP_VERSION__} · {__COMMIT_HASH__} · self-hosted
       </div>
       <div className={styles.user}>
-        <Avatar name="Angora Admin" size="md" />
+        <Avatar name={CURRENT_USER.NAME} size="md" />
         <div>
-          <div className={styles.userName}>Angora Admin</div>
-          <div className={styles.userRole}>Administrator</div>
+          <div className={styles.userName}>{CURRENT_USER.NAME}</div>
+          <div className={styles.userRole}>{CURRENT_USER.ROLE}</div>
         </div>
       </div>
     </aside>

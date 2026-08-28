@@ -57,9 +57,10 @@ src/
 ├── services/             # API client layer (discordService) calling backend endpoints
 ├── router.tsx            # TanStack Router route tree (createRootRoute/createRoute/createRouter),
 │                          #   AppShell as the root route's component
-├── routes.ts             # Single source of truth for route paths (ROUTES), consumed by
-│                          #   both router.tsx and every Link/useNavigate call
-├── constants.ts          # API endpoints, timing config, and toast message templates
+├── routes.ts             # ROUTES (full paths, for Link/navigate/redirect) and ROUTE_SEGMENTS
+│                          #   (bare segments, for router.tsx's createRoute) — one source of truth
+├── constants.ts          # API endpoints, timing config, confirm/toast message templates,
+│                          #   and other config-like or duplicated values
 ├── types/                # TypeScript interfaces (DiscordServer, ToastNotification, etc.)
 ├── App.tsx               # QueryClientProvider + ToastProvider + <RouterProvider router={router}/>
 ├── main.tsx              # React DOM root entrypoint
@@ -79,7 +80,7 @@ src/
 
 - **Routing (`@tanstack/react-router`, `router.tsx`, `routes.ts`)**: a code-based route tree (not file-based/codegen), with `AppShell` as the root route's component (`Sidebar` + `TopBar` + `<Outlet/>`). Each leaf route sets `staticData: { title }` (or `{ crumbs }`) that `TopBar` reads via `useMatches()` — no prop-drilled page titles. `DiscordPage`'s tabs are nested routes; each tab reads its own data directly via the TanStack Query hooks below (no outlet-context prop-threading needed — same query key means shared cache, not a duplicate request).
 - **Data fetching (`@tanstack/react-query`, `hooks/discordQueries.ts`)**: `useDiscordServersQuery`/`useDiscordInviteQuery`/`useLeaveServerMutation` wrap the Discord API calls with automatic polling (`refetchInterval`), window-focus refetching, loading/error state, and cache dedup across every component that calls them (including the sidebar's live server-count badge) — replacing what used to be a hand-rolled `setInterval` + focus-listener + `isMounted`-guard hook.
-- **Centralized Constants (`constants.ts`)**: backend endpoints (`API_ENDPOINTS`), timing intervals (`TIMING_CONFIG`), and toast notifications (`TOAST_MESSAGES`) are declared once as type-safe constants. Route paths live separately in `routes.ts` (`ROUTES`), since they're consumed by both the route tree and navigation call sites.
+- **Centralized Constants (`constants.ts`)**: backend endpoints (`API_ENDPOINTS`), timing intervals (`TIMING_CONFIG`), and confirm/toast message templates (`CONFIRM_MESSAGES`/`TOAST_MESSAGES`) are declared once as type-safe constants — see `apps/frontend/AGENTS.md`'s constants-discipline note for what belongs here versus staying inline. Route paths live separately in `routes.ts` (`ROUTES`/`ROUTE_SEGMENTS`), since they're consumed by both the route tree and navigation call sites.
 - **Contextual Toast System**: A React Context (`ToastProvider` + `useToast`) provides auto-dismissing feedback notifications for user actions (bot leave, connection failures) without intercepting generic window errors.
 
 ## Notes

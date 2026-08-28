@@ -19,6 +19,18 @@ export const TIMING_CONFIG = {
   TOAST_AUTO_DISMISS_MS: 5000,
 } as const
 
+// Placeholder "current user" until real auth/user data lands — used as both
+// the avatar-initials seed and the visible label, in more than one place
+// (Sidebar, TopBar), so it lives here instead of being retyped per call site.
+export const CURRENT_USER = {
+  NAME: 'Angora Admin',
+  ROLE: 'Administrator',
+} as const
+
+export const NOT_FOUND_TITLE = 'Page not found'
+
+export const DEFAULT_ERROR_REASON = 'Network error'
+
 export const CONFIRM_MESSAGES = {
   LEAVE_SERVER: (serverName?: string) =>
     `Are you sure you want to disconnect ${serverName || 'this Discord server'}?`,
@@ -31,6 +43,6 @@ export const TOAST_MESSAGES = {
   }),
   SERVER_DISCONNECT_FAILED: (serverName?: string, reason?: string) => ({
     title: 'Disconnect Failed',
-    message: `Could not disconnect ${serverName || 'server'} (${reason || 'Network error'}).`,
+    message: `Could not disconnect ${serverName || 'server'} (${reason || DEFAULT_ERROR_REASON}).`,
   }),
 } as const
