@@ -55,6 +55,12 @@ src/
 4. **CRM Disconnect**: When disconnected via the Angora UI, the backend sends a request to the bot's internal HTTP server (`POST /leave/:guildId`), prompting the bot to leave the Discord guild.
 5. **Discord-Side Removal**: If kicked or removed directly within Discord, `guildDelete` notifies the backend to update `botJoined: false`.
 
+## Authenticating to the backend
+
+`POST /api/discord/bot/sync` requires a service token — reaching the backend over the Docker network is no longer enough on its own. The bot sends `Authorization: Bearer ${SERVICE_TOKEN_DISCORD_BOT}`, and the backend registers the hash of that same value into its `service_tokens` table at startup, so **both services must be given the identical value**. `docker-compose.yml` wires one variable into both; see the root README's [Environment Variables](../../../README.md#environment-variables).
+
+If they disagree, syncing fails with `401` and the bot logs a hint naming the variable. Nothing else about the bot is affected — the Discord gateway connection, the internal HTTP server, and the healthcheck are all independent of this.
+
 ## Notes
 
 - `package.json` declares `"type": "module"` — don't remove it.
