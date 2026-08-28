@@ -4,7 +4,7 @@ import {
   DISCORD_CONFIG,
   TOAST_MESSAGES,
 } from '../../../constants'
-import { CONNECTED_SERVERS_COPY } from '../../../copy'
+import { CONNECTED_SERVERS_STRINGS } from '../../../strings'
 import {
   useDiscordInviteQuery,
   useDiscordServersQuery,
@@ -55,7 +55,7 @@ export function ConnectedServersTab() {
             padding: 'var(--space-6) 0',
           }}
         >
-          {CONNECTED_SERVERS_COPY.LOADING}
+          {CONNECTED_SERVERS_STRINGS.LOADING}
         </p>
       )}
 
@@ -66,21 +66,21 @@ export function ConnectedServersTab() {
             padding: 'var(--space-6) 0',
           }}
         >
-          {CONNECTED_SERVERS_COPY.ERROR_PREFIX} {error.message}
+          {CONNECTED_SERVERS_STRINGS.ERROR_PREFIX} {error.message}
         </p>
       )}
 
       {!isLoading && servers.length === 0 && (
         <Card>
           <div style={{ textAlign: 'center', padding: 'var(--space-9) 0' }}>
-            <h3>{CONNECTED_SERVERS_COPY.EMPTY_TITLE}</h3>
+            <h3>{CONNECTED_SERVERS_STRINGS.EMPTY_TITLE}</h3>
             <p
               style={{
                 color: 'var(--color-text-secondary)',
                 margin: 'var(--space-3) 0 var(--space-7)',
               }}
             >
-              {CONNECTED_SERVERS_COPY.EMPTY_BODY}
+              {CONNECTED_SERVERS_STRINGS.EMPTY_BODY}
             </p>
             <LinkButton
               href={inviteUrl}
@@ -88,7 +88,7 @@ export function ConnectedServersTab() {
               rel="noreferrer"
               variant="primary"
             >
-              {CONNECTED_SERVERS_COPY.EMPTY_CTA}
+              {CONNECTED_SERVERS_STRINGS.EMPTY_CTA}
             </LinkButton>
           </div>
         </Card>
@@ -116,9 +116,9 @@ export function ConnectedServersTab() {
               fontWeight: 'var(--font-weight-medium)',
             }}
           >
-            {CONNECTED_SERVERS_COPY.REGISTERED_COUNT(servers.length)}
+            {CONNECTED_SERVERS_STRINGS.REGISTERED_COUNT(servers.length)}
           </span>
-          <Pill variant="positive">{CONNECTED_SERVERS_COPY.LIVE_SYNC}</Pill>
+          <Pill variant="positive">{CONNECTED_SERVERS_STRINGS.LIVE_SYNC}</Pill>
         </div>
       )}
 

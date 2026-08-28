@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { Home, MessageSquare, X } from 'lucide-react'
 import { ROUTES } from '../../routes'
-import { NAV_COPY, PAGE_TITLES } from '../../copy'
+import { NAV_STRINGS, PAGE_TITLES } from '../../strings'
 
 export interface NavItem {
   label: string
@@ -19,10 +19,12 @@ export interface NavSection {
 export const MAIN_NAV: NavSection[] = [
   {
     section: PAGE_TITLES.OVERVIEW,
-    items: [{ label: NAV_COPY.HOME, path: ROUTES.HOME, icon: Home, end: true }],
+    items: [
+      { label: NAV_STRINGS.HOME, path: ROUTES.HOME, icon: Home, end: true },
+    ],
   },
   {
-    section: NAV_COPY.SECTION_INTEGRATIONS,
+    section: NAV_STRINGS.SECTION_INTEGRATIONS,
     items: [
       {
         label: PAGE_TITLES.DISCORD_BOT,
@@ -37,6 +39,6 @@ export const MAIN_NAV: NavSection[] = [
 export const SETTINGS_NAV: NavSection[] = [
   {
     section: PAGE_TITLES.SETTINGS,
-    items: [{ label: NAV_COPY.EXIT_SETTINGS, path: ROUTES.HOME, icon: X }],
+    items: [{ label: NAV_STRINGS.EXIT_SETTINGS, path: ROUTES.HOME, icon: X }],
   },
 ]

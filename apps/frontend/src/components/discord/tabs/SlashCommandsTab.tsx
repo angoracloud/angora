@@ -1,10 +1,10 @@
 import { Card, Pill } from '../../ui'
-import { SLASH_COMMANDS_COPY } from '../../../copy'
+import { SLASH_COMMANDS_STRINGS } from '../../../strings'
 
 export function SlashCommandsTab() {
   return (
     <Card>
-      <Card.Header title={SLASH_COMMANDS_COPY.OVERVIEW_TITLE} />
+      <Card.Header title={SLASH_COMMANDS_STRINGS.OVERVIEW_TITLE} />
       <div
         style={{
           display: 'flex',
@@ -30,7 +30,7 @@ export function SlashCommandsTab() {
                 color: 'var(--color-navy)',
               }}
             >
-              {SLASH_COMMANDS_COPY.PING_NAME}
+              {SLASH_COMMANDS_STRINGS.PING_NAME}
             </div>
             <div
               style={{
@@ -39,10 +39,10 @@ export function SlashCommandsTab() {
                 marginTop: 'var(--space-1)',
               }}
             >
-              {SLASH_COMMANDS_COPY.PING_DESCRIPTION}
+              {SLASH_COMMANDS_STRINGS.PING_DESCRIPTION}
             </div>
           </div>
-          <Pill variant="positive">{SLASH_COMMANDS_COPY.PING_STATUS}</Pill>
+          <Pill variant="positive">{SLASH_COMMANDS_STRINGS.PING_STATUS}</Pill>
         </div>
 
         <div
@@ -64,7 +64,7 @@ export function SlashCommandsTab() {
                 color: 'var(--color-navy)',
               }}
             >
-              {SLASH_COMMANDS_COPY.DEDICATED_NAME}
+              {SLASH_COMMANDS_STRINGS.DEDICATED_NAME}
             </div>
             <div
               style={{
@@ -73,10 +73,10 @@ export function SlashCommandsTab() {
                 marginTop: 'var(--space-1)',
               }}
             >
-              {SLASH_COMMANDS_COPY.DEDICATED_DESCRIPTION}
+              {SLASH_COMMANDS_STRINGS.DEDICATED_DESCRIPTION}
             </div>
           </div>
-          <Pill variant="info">{SLASH_COMMANDS_COPY.DEDICATED_STATUS}</Pill>
+          <Pill variant="info">{SLASH_COMMANDS_STRINGS.DEDICATED_STATUS}</Pill>
         </div>
       </div>
     </Card>

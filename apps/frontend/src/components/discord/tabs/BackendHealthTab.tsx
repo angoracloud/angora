@@ -1,5 +1,5 @@
 import { useDiscordInviteQuery } from '../../../hooks/discordQueries'
-import { BACKEND_HEALTH_COPY } from '../../../copy'
+import { BACKEND_HEALTH_STRINGS } from '../../../strings'
 import { Card } from '../../ui'
 
 export function BackendHealthTab() {
@@ -7,7 +7,7 @@ export function BackendHealthTab() {
 
   return (
     <Card>
-      <Card.Header title={BACKEND_HEALTH_COPY.TITLE} />
+      <Card.Header title={BACKEND_HEALTH_STRINGS.TITLE} />
       <pre
         style={{
           background: 'var(--color-canvas)',

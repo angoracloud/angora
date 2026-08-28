@@ -13,7 +13,7 @@ import { BackendHealthTab } from './components/discord/tabs/BackendHealthTab'
 import { SettingsPage } from './components/settings/SettingsPage'
 import { NotFoundPage } from './components/NotFoundPage'
 import { ROUTE_SEGMENTS, ROUTES } from './routes'
-import { PAGE_TITLES } from './copy'
+import { PAGE_TITLES } from './strings'
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {

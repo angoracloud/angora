@@ -4,7 +4,7 @@ import {
   useDiscordServersQuery,
 } from '../../hooks/discordQueries'
 import { DISCORD_CONFIG } from '../../constants'
-import { DISCORD_PAGE_COPY } from '../../copy'
+import { DISCORD_PAGE_STRINGS } from '../../strings'
 import { ROUTES } from '../../routes'
 import { CountBadge, LinkButton } from '../ui'
 import tabButtonStyles from '../ui/TabButton.module.css'
@@ -27,7 +27,7 @@ export function DiscordPage() {
         }}
       >
         <p style={{ color: 'var(--color-text-secondary)' }}>
-          {DISCORD_PAGE_COPY.DESCRIPTION}
+          {DISCORD_PAGE_STRINGS.DESCRIPTION}
         </p>
         <LinkButton
           href={inviteUrl}
@@ -35,7 +35,7 @@ export function DiscordPage() {
           rel="noreferrer"
           variant="primary"
         >
-          {DISCORD_PAGE_COPY.INVITE_CTA}
+          {DISCORD_PAGE_STRINGS.INVITE_CTA}
         </LinkButton>
       </div>
 
@@ -54,7 +54,7 @@ export function DiscordPage() {
         >
           {({ isActive }) => (
             <>
-              {DISCORD_PAGE_COPY.TAB_SERVERS}{' '}
+              {DISCORD_PAGE_STRINGS.TAB_SERVERS}{' '}
               <CountBadge count={servers?.length ?? 0} active={isActive} />
             </>
           )}
@@ -64,14 +64,14 @@ export function DiscordPage() {
           className={tabButtonStyles.tabBtn}
           activeProps={{ className: tabButtonStyles.active }}
         >
-          {DISCORD_PAGE_COPY.TAB_COMMANDS}
+          {DISCORD_PAGE_STRINGS.TAB_COMMANDS}
         </Link>
         <Link
           to={ROUTES.DISCORD.HEALTH}
           className={tabButtonStyles.tabBtn}
           activeProps={{ className: tabButtonStyles.active }}
         >
-          {DISCORD_PAGE_COPY.TAB_HEALTH}
+          {DISCORD_PAGE_STRINGS.TAB_HEALTH}
         </Link>
       </nav>
 

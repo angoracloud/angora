@@ -12,39 +12,39 @@ export const PAGE_TITLES = {
   SETTINGS: 'Settings',
 } as const
 
-export const NAV_COPY = {
+export const NAV_STRINGS = {
   SECTION_INTEGRATIONS: 'Integrations',
   HOME: 'Home',
   EXIT_SETTINGS: 'Exit Settings',
 } as const
 
-export const SIDEBAR_COPY = {
+export const SIDEBAR_STRINGS = {
   WORDMARK: 'Angora',
   TAG_ADMIN: 'ADMIN',
   TAG_MAIN: 'CRM',
   VERSION_SUFFIX: 'self-hosted',
 } as const
 
-export const TOPBAR_COPY = {
+export const TOPBAR_STRINGS = {
   TOGGLE_NAV: 'Toggle navigation',
   SEARCH_PLACEHOLDER: 'Search tickets, contacts, messages…',
   NOTIFICATIONS: 'Notifications',
 } as const
 
-export const TOAST_CONTAINER_COPY = {
+export const TOAST_CONTAINER_STRINGS = {
   REGION_LABEL: 'Notifications',
   CLOSE_LABEL: 'Close notification',
 } as const
 
-export const NOT_FOUND_COPY = {
+export const NOT_FOUND_STRINGS = {
   RETURN_HOME: 'Return home',
 } as const
 
-export const SETTINGS_PAGE_COPY = {
+export const SETTINGS_PAGE_STRINGS = {
   BODY: 'Workspace settings are not implemented yet.',
 } as const
 
-export const HOME_PAGE_COPY = {
+export const HOME_PAGE_STRINGS = {
   DISCORD: {
     STATUS: 'Active',
     TITLE: 'Discord Bot Integration',
@@ -75,7 +75,7 @@ export const HOME_PAGE_COPY = {
   },
 } as const
 
-export const DISCORD_PAGE_COPY = {
+export const DISCORD_PAGE_STRINGS = {
   DESCRIPTION:
     'Manage connected Discord servers, invite Angora Bot, and view slash commands.',
   INVITE_CTA: 'Add Bot to Server (OAuth)',
@@ -84,7 +84,7 @@ export const DISCORD_PAGE_COPY = {
   TAB_HEALTH: 'Backend Health',
 } as const
 
-export const CONNECTED_SERVERS_COPY = {
+export const CONNECTED_SERVERS_STRINGS = {
   LOADING: 'Loading connected servers...',
   ERROR_PREFIX: 'Error loading servers:',
   EMPTY_TITLE: 'No Discord Servers Connected',
@@ -95,7 +95,7 @@ export const CONNECTED_SERVERS_COPY = {
   LIVE_SYNC: 'Live auto-sync active',
 } as const
 
-export const SERVER_CARD_COPY = {
+export const SERVER_CARD_STRINGS = {
   ID_LABEL: 'ID:',
   MEMBERS_LABEL: 'Members:',
   CONNECTED: 'Bot Connected',
@@ -104,7 +104,7 @@ export const SERVER_CARD_COPY = {
   RECONNECT: 'Reconnect',
 } as const
 
-export const SLASH_COMMANDS_COPY = {
+export const SLASH_COMMANDS_STRINGS = {
   OVERVIEW_TITLE: 'Command Registry Overview',
   PING_NAME: '/ping',
   PING_DESCRIPTION: 'Checks bot WebSocket latency & API roundtrip latency',
@@ -114,6 +114,6 @@ export const SLASH_COMMANDS_COPY = {
   DEDICATED_STATUS: 'Ready for implementation',
 } as const
 
-export const BACKEND_HEALTH_COPY = {
+export const BACKEND_HEALTH_STRINGS = {
   TITLE: 'Discord OAuth Invite Link Data',
 } as const

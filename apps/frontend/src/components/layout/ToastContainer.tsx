@@ -1,6 +1,6 @@
 import { useToast } from '../../hooks/useToast'
 import type { ToastType } from '../../types'
-import { TOAST_CONTAINER_COPY } from '../../copy'
+import { TOAST_CONTAINER_STRINGS } from '../../strings'
 import styles from './ToastContainer.module.css'
 
 const TYPE_CLASS: Record<ToastType, string> = {
@@ -19,7 +19,7 @@ export function ToastContainer() {
     <div
       className={styles.container}
       role="region"
-      aria-label={TOAST_CONTAINER_COPY.REGION_LABEL}
+      aria-label={TOAST_CONTAINER_STRINGS.REGION_LABEL}
       aria-live="polite"
     >
       {toasts.map((toast) => (
@@ -40,7 +40,7 @@ export function ToastContainer() {
           <button
             className={styles.close}
             onClick={() => removeToast(toast.id)}
-            aria-label={TOAST_CONTAINER_COPY.CLOSE_LABEL}
+            aria-label={TOAST_CONTAINER_STRINGS.CLOSE_LABEL}
           >
             ✕
           </button>
