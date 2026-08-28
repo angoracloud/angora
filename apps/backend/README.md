@@ -93,7 +93,8 @@ The **Auth** column says what a request must present: *public* (nothing), *sessi
 | POST   | `/api/auth/logout`              | session | End the current session                          | `{"status": "logged_out"}`                     |
 | POST   | `/api/auth/logout-all`          | session | End every session for the current user           | `{"status": "logged_out_everywhere"}`          |
 | GET    | `/api/discord/servers`          | session | List all tracked Discord servers                 | `[{"id": "...", "guildId": "...", ...}]`       |
-| DELETE | `/api/discord/servers/{id}`     | session | Disconnect bot from server (marks left & leaves) | `{"status": "updated", "guildId": "...", ...}` |
+| POST   | `/api/discord/servers/{id}/leave` | session | Disconnect bot from server (marks left & leaves) | `{"status": "updated", "guildId": "...", ...}` |
+| DELETE | `/api/discord/servers/{id}`     | session | Soft-deletes server and disconnects bot          | `{"status": "deleted", "guildId": "...", ...}` |
 | GET    | `/api/discord/bot/invite`       | session | Get Discord bot OAuth invitation URL             | `{"clientId": "...", "inviteUrl": "..."}`      |
 | POST   | `/api/discord/bot/sync`         | service | Sync guild info from Discord Bot gateway         | `{"status": "synced"}`                         |
 
