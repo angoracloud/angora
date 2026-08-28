@@ -1,101 +1,141 @@
-import { DISCORD_CONFIG } from '../../../constants'
-import type { DiscordServer, InviteData } from '../../../types'
+import {
+  CONFIRM_MESSAGES,
+  DEFAULT_ERROR_REASON,
+  DISCORD_CONFIG,
+  TOAST_MESSAGES,
+} from '../../../constants'
+import { CONNECTED_SERVERS_STRINGS } from '../../../strings'
+import {
+  useDiscordInviteQuery,
+  useDiscordServersQuery,
+  useLeaveServerMutation,
+} from '../../../hooks/discordQueries'
+import { useToast } from '../../../hooks/useToast'
+import { Card, LinkButton, Pill } from '../../ui'
 import { ServerCard } from './ServerCard'
 
-interface ConnectedServersTabProps {
-  servers: DiscordServer[]
-  inviteData: InviteData | null
-  loading: boolean
-  error: string | null
-  onLeaveServer: (id: string, name: string) => void
-}
-
-export function ConnectedServersTab({
-  servers,
-  inviteData,
-  loading,
-  error,
-  onLeaveServer,
-}: ConnectedServersTabProps) {
+export function ConnectedServersTab() {
+  const { data: servers = [], isLoading, error } = useDiscordServersQuery()
+  const { data: inviteData } = useDiscordInviteQuery()
+  const leaveMutation = useLeaveServerMutation()
+  const { addToast } = useToast()
   const inviteUrl = inviteData?.inviteUrl || DISCORD_CONFIG.FALLBACK_INVITE_URL
+
+  function handleLeave(id: string, serverName?: string) {
+    if (!confirm(CONFIRM_MESSAGES.LEAVE_SERVER(serverName))) {
+      return
+    }
+
+    leaveMutation.mutate(
+      { id, serverName },
+      {
+        onSuccess: () => {
+          const toastData = TOAST_MESSAGES.BOT_LEFT_SERVER(serverName)
+          addToast('info', toastData.title, toastData.message)
+        },
+        onError: (err) => {
+          const message =
+            err instanceof Error ? err.message : DEFAULT_ERROR_REASON
+          const toastData = TOAST_MESSAGES.SERVER_DISCONNECT_FAILED(
+            serverName,
+            message,
+          )
+          addToast('error', toastData.title, toastData.message)
+        },
+      },
+    )
+  }
 
   return (
     <div>
-      {loading && (
-        <p style={{ color: 'var(--text-secondary)', padding: '1rem 0' }}>
-          Loading connected servers...
+      {isLoading && (
+        <p
+          style={{
+            color: 'var(--color-text-secondary)',
+            padding: 'var(--space-6) 0',
+          }}
+        >
+          {CONNECTED_SERVERS_STRINGS.LOADING}
         </p>
       )}
 
       {error && (
-        <p style={{ color: 'var(--danger)', padding: '1rem 0' }}>
-          Error loading servers: {error}
+        <p
+          style={{
+            color: 'var(--color-danger-text)',
+            padding: 'var(--space-6) 0',
+          }}
+        >
+          {CONNECTED_SERVERS_STRINGS.ERROR_PREFIX} {error.message}
         </p>
       )}
 
-      {!loading && servers.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-icon">🤖</div>
-          <h3>No Discord Servers Connected</h3>
-          <p
-            style={{
-              color: 'var(--text-secondary)',
-              marginBottom: '1.5rem',
-              marginTop: '0.5rem',
-            }}
-          >
-            Invite the bot to your Discord server to get started.
-          </p>
-          <a
-            href={inviteUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-discord"
-          >
-            🤖 Invite Bot to Discord Server (OAuth)
-          </a>
-        </div>
+      {!isLoading && servers.length === 0 && (
+        <Card>
+          <div style={{ textAlign: 'center', padding: 'var(--space-9) 0' }}>
+            <h3>{CONNECTED_SERVERS_STRINGS.EMPTY_TITLE}</h3>
+            <p
+              style={{
+                color: 'var(--color-text-secondary)',
+                margin: 'var(--space-3) 0 var(--space-7)',
+              }}
+            >
+              {CONNECTED_SERVERS_STRINGS.EMPTY_BODY}
+            </p>
+            <LinkButton
+              href={inviteUrl}
+              target="_blank"
+              rel="noreferrer"
+              variant="primary"
+            >
+              {CONNECTED_SERVERS_STRINGS.EMPTY_CTA}
+            </LinkButton>
+          </div>
+        </Card>
       )}
 
-      {!loading && servers.length > 0 && (
+      {!isLoading && servers.length > 0 && (
         <div
           style={{
             display: 'flex',
+            flexWrap: 'wrap',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '1.25rem',
-            padding: '0.5rem 0.75rem',
-            background: 'rgba(255, 255, 255, 0.02)',
-            borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--border-color)',
+            gap: 'var(--space-3)',
+            marginBottom: 'var(--space-7)',
+            padding: 'var(--space-3) var(--space-5)',
+            background: 'var(--color-surface)',
+            borderRadius: 'var(--radius-control)',
+            border: '0.0625rem solid var(--color-border)',
           }}
         >
           <span
             style={{
-              fontSize: '0.85rem',
-              color: 'var(--text-secondary)',
-              fontWeight: 500,
+              fontSize: 'var(--font-size-sm)',
+              color: 'var(--color-text-secondary)',
+              fontWeight: 'var(--font-weight-medium)',
             }}
           >
-            📋 {servers.length} server{servers.length === 1 ? '' : 's'}{' '}
-            registered
+            {CONNECTED_SERVERS_STRINGS.REGISTERED_COUNT(servers.length)}
           </span>
-          <span
-            className="status-badge active"
-            style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
-          >
-            <span className="status-dot"></span> Live auto-sync active
-          </span>
+          <Pill variant="positive">{CONNECTED_SERVERS_STRINGS.LIVE_SYNC}</Pill>
         </div>
       )}
 
-      <div className="grid-container">
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            'repeat(auto-fill, minmax(min(20rem, 100%), 1fr))',
+          gap: 'var(--space-8)',
+        }}
+      >
         {servers.map((server) => (
           <ServerCard
             key={server.id}
             server={server}
             inviteUrl={inviteData?.inviteUrl}
-            onLeave={onLeaveServer}
+            onLeave={handleLeave}
           />
         ))}
       </div>

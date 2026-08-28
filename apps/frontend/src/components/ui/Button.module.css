@@ -1,0 +1,63 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-control);
+  border: 0.0625rem solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.md {
+  font-size: var(--font-size-sm);
+  padding: var(--space-3) var(--space-6);
+}
+
+.sm {
+  font-size: var(--font-size-2xs);
+  padding: var(--space-2) var(--space-4);
+}
+
+.primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+.primary:hover {
+  background: var(--color-accent-hover);
+  /* Explicit, not inherited: .btn/.primary render as <a> for LinkButton, and
+     the global `a:hover` color rule in index.css otherwise wins on
+     specificity here, converging text and background on the same blue. */
+  color: #fff;
+}
+
+.secondary {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+.secondary:hover {
+  background: var(--color-canvas);
+  color: var(--color-text-secondary);
+}
+
+.danger {
+  background: #fff;
+  border-color: #e3a6a2;
+  color: var(--color-danger-text);
+}
+.danger:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
