@@ -14,6 +14,7 @@ object BackendConstants {
         const val DISCORD_BASE = "/api/discord"
         const val DISCORD_SERVERS = "/servers"
         const val DISCORD_SERVERS_BY_ID = "/servers/{id}"
+        const val DISCORD_SERVERS_LEAVE = "/servers/{id}/leave"
         const val DISCORD_BOT_SYNC = "/bot/sync"
         const val DISCORD_BOT_INVITE = "/bot/invite"
         const val AUTH_BASE = "/api/auth"
@@ -123,6 +124,13 @@ object BackendConstants {
         const val DEFAULT_PERMISSIONS = "2147568640"
         const val BOT_LEAVE_ENDPOINT_PREFIX = "/leave"
         val HTTP_REQUEST_TIMEOUT: Duration = Duration.ofSeconds(5)
+
+        /** The `status` values returned in Discord server responses. Part of the API contract. */
+        object ServerStatus {
+            const val UPDATED = "updated"
+            const val DELETED = "deleted"
+            const val SYNCED = "synced"
+        }
     }
 
     object DatabaseDefaults {

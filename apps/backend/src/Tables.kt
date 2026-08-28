@@ -106,5 +106,6 @@ object DiscordServers : UUIDTable("discord_servers") {
     val botJoined = bool("bot_joined").default(true)
     val createdAt = timestamp("created_at")
     val updatedAt = timestamp("updated_at")
+    val deletedAt = timestamp("deleted_at").nullable()
 }
 

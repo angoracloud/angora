@@ -45,3 +45,23 @@ export function useLeaveServerMutation() {
     },
   })
 }
+
+export interface DeleteServerVariables {
+  id: string
+  serverName?: string
+}
+
+export function useDeleteServerMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id }: DeleteServerVariables) =>
+      discordService.deleteServer(id),
+    onSuccess: (_data, variables) => {
+      queryClient.setQueryData<DiscordServer[]>(discordKeys.servers, (prev) =>
+        prev?.filter(
+          (s) => s.id !== variables.id && s.guildId !== variables.id,
+        ),
+      )
+    },
+  })
+}

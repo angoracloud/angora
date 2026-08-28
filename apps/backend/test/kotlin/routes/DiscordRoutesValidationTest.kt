@@ -1,6 +1,7 @@
 package cloud.angora.routes
 
 import cloud.angora.auth.ServicePrincipal
+import cloud.angora.auth.UserPrincipal
 import cloud.angora.constants.BackendConstants
 import cloud.angora.dto.*
 import cloud.angora.plugins.configureErrorHandling
@@ -28,7 +29,23 @@ private class FakeDiscordService : DiscordService {
 
     override fun leaveServer(idOrGuildId: String): DeleteServerResponse? {
         return if (idOrGuildId == "found") {
-            DeleteServerResponse(status = "updated", guildId = "found", botJoined = false)
+            DeleteServerResponse(
+                status = BackendConstants.Discord.ServerStatus.UPDATED,
+                guildId = "found",
+                botJoined = false
+            )
+        } else {
+            null
+        }
+    }
+
+    override fun deleteServer(idOrGuildId: String): DeleteServerResponse? {
+        return if (idOrGuildId == "found") {
+            DeleteServerResponse(
+                status = BackendConstants.Discord.ServerStatus.DELETED,
+                guildId = "found",
+                botJoined = false
+            )
         } else {
             null
         }
@@ -51,6 +68,7 @@ class DiscordRoutesValidationTest {
     }
 
     private val validServiceToken = "test-service-token"
+    private val validUserToken = "test-user-token"
 
     private fun ApplicationTestBuilder.configureTestApp(discordService: DiscordService) {
         application {
@@ -77,7 +95,18 @@ class DiscordRoutesValidationTest {
                     }
                 }
                 bearer(BackendConstants.Auth.USER_PROVIDER) {
-                    authenticate { null }
+                    authenticate { credential ->
+                        if (credential.token == validUserToken) {
+                            UserPrincipal(
+                                userId = UUID.randomUUID(),
+                                companyId = UUID.randomUUID(),
+                                roleName = BackendConstants.RoleNames.OWNER,
+                                sessionId = UUID.randomUUID()
+                            )
+                        } else {
+                            null
+                        }
+                    }
                 }
             }
             configureValidation()
@@ -216,5 +245,87 @@ class DiscordRoutesValidationTest {
         val envelope = json.decodeFromString<ApiErrorEnvelope>(response.bodyAsText())
         assertEquals(BackendConstants.Errors.INVALID_REQUEST_BODY_CODE, envelope.error.code)
         assertEquals(BackendConstants.Errors.INVALID_REQUEST_BODY_MESSAGE, envelope.error.message)
+    }
+
+    @Test
+    fun `POST leave server with valid id succeeds with 200 and updated status`() = testApplication {
+        val fakeService = FakeDiscordService()
+        configureTestApp(fakeService)
+
+        val response = client.post("/api/discord/servers/found/leave") {
+            header(HttpHeaders.Authorization, "Bearer $validUserToken")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = json.decodeFromString<DeleteServerResponse>(response.bodyAsText())
+        assertEquals(BackendConstants.Discord.ServerStatus.UPDATED, body.status)
+        assertEquals("found", body.guildId)
+        assertFalse(body.botJoined)
+    }
+
+    @Test
+    fun `POST leave server with unknown id returns 404 server_not_found`() = testApplication {
+        val fakeService = FakeDiscordService()
+        configureTestApp(fakeService)
+
+        val response = client.post("/api/discord/servers/unknown/leave") {
+            header(HttpHeaders.Authorization, "Bearer $validUserToken")
+        }
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        val envelope = json.decodeFromString<ApiErrorEnvelope>(response.bodyAsText())
+        assertEquals(BackendConstants.Errors.SERVER_NOT_FOUND_CODE, envelope.error.code)
+        assertEquals(BackendConstants.Errors.SERVER_NOT_FOUND_MESSAGE, envelope.error.message)
+    }
+
+    @Test
+    fun `POST leave server without auth returns 401 Unauthorized`() = testApplication {
+        val fakeService = FakeDiscordService()
+        configureTestApp(fakeService)
+
+        val response = client.post("/api/discord/servers/found/leave")
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `DELETE server with valid id succeeds with 200 and deleted status`() = testApplication {
+        val fakeService = FakeDiscordService()
+        configureTestApp(fakeService)
+
+        val response = client.delete("/api/discord/servers/found") {
+            header(HttpHeaders.Authorization, "Bearer $validUserToken")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = json.decodeFromString<DeleteServerResponse>(response.bodyAsText())
+        assertEquals(BackendConstants.Discord.ServerStatus.DELETED, body.status)
+        assertEquals("found", body.guildId)
+        assertFalse(body.botJoined)
+    }
+
+    @Test
+    fun `DELETE server with unknown id returns 404 server_not_found`() = testApplication {
+        val fakeService = FakeDiscordService()
+        configureTestApp(fakeService)
+
+        val response = client.delete("/api/discord/servers/unknown") {
+            header(HttpHeaders.Authorization, "Bearer $validUserToken")
+        }
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        val envelope = json.decodeFromString<ApiErrorEnvelope>(response.bodyAsText())
+        assertEquals(BackendConstants.Errors.SERVER_NOT_FOUND_CODE, envelope.error.code)
+        assertEquals(BackendConstants.Errors.SERVER_NOT_FOUND_MESSAGE, envelope.error.message)
+    }
+
+    @Test
+    fun `DELETE server without auth returns 401 Unauthorized`() = testApplication {
+        val fakeService = FakeDiscordService()
+        configureTestApp(fakeService)
+
+        val response = client.delete("/api/discord/servers/found")
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
 }

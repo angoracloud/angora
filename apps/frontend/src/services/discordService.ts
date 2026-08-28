@@ -28,6 +28,18 @@ export const discordService = {
    * Sends a request to disconnect the Discord bot from a target server.
    */
   async leaveServer(id: string): Promise<void> {
+    const res = await fetch(API_ENDPOINTS.DISCORD_SERVER_LEAVE(id), {
+      method: 'POST',
+    })
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`)
+    }
+  },
+
+  /**
+   * Sends a request to soft-delete the Discord server and remove it from the system.
+   */
+  async deleteServer(id: string): Promise<void> {
     const res = await fetch(API_ENDPOINTS.DISCORD_SERVER_BY_ID(id), {
       method: 'DELETE',
     })

@@ -102,6 +102,8 @@ export const SERVER_CARD_STRINGS = {
   DISCONNECTED: 'Bot Left',
   REMOVE: 'Remove',
   RECONNECT: 'Reconnect',
+  OPTIONS_LABEL: (serverName: string) => `Options for ${serverName}`,
+  DELETE_SERVER: 'Delete Server',
 } as const
 
 export const SLASH_COMMANDS_STRINGS = {

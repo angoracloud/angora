@@ -6,6 +6,7 @@ import {
 } from '../../../constants'
 import { CONNECTED_SERVERS_STRINGS } from '../../../strings'
 import {
+  useDeleteServerMutation,
   useDiscordInviteQuery,
   useDiscordServersQuery,
   useLeaveServerMutation,
@@ -18,6 +19,7 @@ export function ConnectedServersTab() {
   const { data: servers = [], isLoading, error } = useDiscordServersQuery()
   const { data: inviteData } = useDiscordInviteQuery()
   const leaveMutation = useLeaveServerMutation()
+  const deleteMutation = useDeleteServerMutation()
   const { addToast } = useToast()
   const inviteUrl = inviteData?.inviteUrl || DISCORD_CONFIG.FALLBACK_INVITE_URL
 
@@ -37,6 +39,31 @@ export function ConnectedServersTab() {
           const message =
             err instanceof Error ? err.message : DEFAULT_ERROR_REASON
           const toastData = TOAST_MESSAGES.SERVER_DISCONNECT_FAILED(
+            serverName,
+            message,
+          )
+          addToast('error', toastData.title, toastData.message)
+        },
+      },
+    )
+  }
+
+  function handleDelete(id: string, serverName?: string) {
+    if (!confirm(CONFIRM_MESSAGES.DELETE_SERVER(serverName))) {
+      return
+    }
+
+    deleteMutation.mutate(
+      { id, serverName },
+      {
+        onSuccess: () => {
+          const toastData = TOAST_MESSAGES.SERVER_DELETED(serverName)
+          addToast('success', toastData.title, toastData.message)
+        },
+        onError: (err) => {
+          const message =
+            err instanceof Error ? err.message : DEFAULT_ERROR_REASON
+          const toastData = TOAST_MESSAGES.SERVER_DELETE_FAILED(
             serverName,
             message,
           )
@@ -136,6 +163,7 @@ export function ConnectedServersTab() {
             server={server}
             inviteUrl={inviteData?.inviteUrl}
             onLeave={handleLeave}
+            onDelete={handleDelete}
           />
         ))}
       </div>
