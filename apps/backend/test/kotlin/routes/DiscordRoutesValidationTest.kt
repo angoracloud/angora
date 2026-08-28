@@ -3,25 +3,19 @@ package cloud.angora.routes
 import cloud.angora.auth.ServicePrincipal
 import cloud.angora.constants.BackendConstants
 import cloud.angora.dto.*
-import cloud.angora.error.ApiException
+import cloud.angora.plugins.configureErrorHandling
+import cloud.angora.plugins.configureValidation
 import cloud.angora.service.DiscordService
-import cloud.angora.validation.configureRequestValidation
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
-import io.ktor.server.plugins.BadRequestException
-import io.ktor.server.plugins.CannotTransformContentToTypeException
 import io.ktor.server.plugins.callid.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.requestvalidation.*
-import io.ktor.server.plugins.statuspages.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.testing.*
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -64,79 +58,7 @@ class DiscordRoutesValidationTest {
                 header(HttpHeaders.XRequestId)
                 generate { UUID.randomUUID().toString() }
             }
-            install(StatusPages) {
-                exception<ApiException> { call, cause ->
-                    call.respond(
-                        cause.statusCode,
-                        ApiErrorEnvelope(ApiError(cause.code, cause.message, call.callId ?: "unknown"))
-                    )
-                }
-                exception<RequestValidationException> { call, cause ->
-                    val message = if (cause.reasons.isNotEmpty()) {
-                        cause.reasons.joinToString("; ")
-                    } else {
-                        BackendConstants.Errors.VALIDATION_ERROR_MESSAGE
-                    }
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        ApiErrorEnvelope(
-                            ApiError(
-                                BackendConstants.Errors.VALIDATION_ERROR_CODE,
-                                message,
-                                call.callId ?: "unknown"
-                            )
-                        )
-                    )
-                }
-                exception<BadRequestException> { call, cause ->
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        ApiErrorEnvelope(
-                            ApiError(
-                                BackendConstants.Errors.BAD_REQUEST_CODE,
-                                cause.message?.substringBefore("\n") ?: BackendConstants.Errors.BAD_REQUEST_MESSAGE,
-                                call.callId ?: "unknown"
-                            )
-                        )
-                    )
-                }
-                exception<SerializationException> { call, cause ->
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        ApiErrorEnvelope(
-                            ApiError(
-                                BackendConstants.Errors.INVALID_JSON_CODE,
-                                BackendConstants.Errors.INVALID_JSON_MESSAGE,
-                                call.callId ?: "unknown"
-                            )
-                        )
-                    )
-                }
-                exception<CannotTransformContentToTypeException> { call, cause ->
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        ApiErrorEnvelope(
-                            ApiError(
-                                BackendConstants.Errors.INVALID_JSON_CODE,
-                                BackendConstants.Errors.INVALID_JSON_MESSAGE,
-                                call.callId ?: "unknown"
-                            )
-                        )
-                    )
-                }
-                exception<Throwable> { call, cause ->
-                    call.respond(
-                        HttpStatusCode.InternalServerError,
-                        ApiErrorEnvelope(
-                            ApiError(
-                                BackendConstants.Errors.INTERNAL_ERROR_CODE,
-                                BackendConstants.Errors.INTERNAL_ERROR_MESSAGE,
-                                call.callId ?: "unknown"
-                            )
-                        )
-                    )
-                }
-            }
+            configureErrorHandling()
             install(ContentNegotiation) {
                 json(Json {
                     prettyPrint = true
@@ -158,9 +80,7 @@ class DiscordRoutesValidationTest {
                     authenticate { null }
                 }
             }
-            install(RequestValidation) {
-                configureRequestValidation()
-            }
+            configureValidation()
             routing {
                 discordRoutes(discordService)
             }
@@ -235,7 +155,7 @@ class DiscordRoutesValidationTest {
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
         val envelope = json.decodeFromString<ApiErrorEnvelope>(response.bodyAsText())
-        assertEquals("validation_error", envelope.error.code)
+        assertEquals(BackendConstants.Errors.VALIDATION_ERROR_CODE, envelope.error.code)
         assertTrue(envelope.error.message.contains("guildId must not be blank"))
         assertEquals(0, fakeService.syncedGuilds.size)
     }
@@ -261,12 +181,12 @@ class DiscordRoutesValidationTest {
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
         val envelope = json.decodeFromString<ApiErrorEnvelope>(response.bodyAsText())
-        assertEquals("validation_error", envelope.error.code)
+        assertEquals(BackendConstants.Errors.VALIDATION_ERROR_CODE, envelope.error.code)
         assertTrue(envelope.error.message.contains("memberCount must be zero or positive"))
     }
 
     @Test
-    fun `POST sync rejects malformed JSON with 400 bad request error`() = testApplication {
+    fun `POST sync rejects malformed JSON with 400 invalid_request_body error`() = testApplication {
         val fakeService = FakeDiscordService()
         configureTestApp(fakeService)
 
@@ -278,11 +198,12 @@ class DiscordRoutesValidationTest {
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
         val envelope = json.decodeFromString<ApiErrorEnvelope>(response.bodyAsText())
-        assertTrue(envelope.error.code == "bad_request" || envelope.error.code == "invalid_json")
+        assertEquals(BackendConstants.Errors.INVALID_REQUEST_BODY_CODE, envelope.error.code)
+        assertEquals(BackendConstants.Errors.INVALID_REQUEST_BODY_MESSAGE, envelope.error.message)
     }
 
     @Test
-    fun `POST sync rejects missing or non-json Content-Type with 400 bad request error`() = testApplication {
+    fun `POST sync rejects missing or non-json Content-Type with 400 invalid_request_body error`() = testApplication {
         val fakeService = FakeDiscordService()
         configureTestApp(fakeService)
 
@@ -293,6 +214,7 @@ class DiscordRoutesValidationTest {
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
         val envelope = json.decodeFromString<ApiErrorEnvelope>(response.bodyAsText())
-        assertEquals("invalid_json", envelope.error.code)
+        assertEquals(BackendConstants.Errors.INVALID_REQUEST_BODY_CODE, envelope.error.code)
+        assertEquals(BackendConstants.Errors.INVALID_REQUEST_BODY_MESSAGE, envelope.error.message)
     }
 }
