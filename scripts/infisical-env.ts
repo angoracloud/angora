@@ -50,6 +50,10 @@ async function detail(res: Response): Promise<string> {
   return body ? `${res.status}: ${body}` : `${res.status}`
 }
 
+function reason(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 async function accessToken(domain: string): Promise<string> {
   const preIssued = env('INFISICAL_TOKEN')
   if (preIssued) return preIssued
@@ -145,9 +149,7 @@ const outPath = path.resolve(ROOT, outArg?.split('=')[1] ?? DEFAULT_OUT)
 // problem and gets its own message, rather than being blamed on the network.
 const secrets = await fetchSecrets().catch((err: unknown) =>
   fail(
-    `Could not reach Infisical at ${env('INFISICAL_DOMAIN') ?? DEFAULT_DOMAIN} — ${
-      err instanceof Error ? err.message : String(err)
-    }`,
+    `Could not reach Infisical at ${env('INFISICAL_DOMAIN') ?? DEFAULT_DOMAIN} — ${reason(err)}`,
   ),
 )
 
@@ -155,14 +157,21 @@ const contents = render(secrets)
 const relative = path.relative(ROOT, outPath)
 
 try {
-  // `mode` only applies when the file is created, so an existing file would keep
-  // whatever permissions it already had — chmod unconditionally afterwards. This
-  // file holds POSTGRES_PASSWORD and the service token in plaintext.
   await writeFile(outPath, contents, { mode: 0o600 })
+} catch (err) {
+  fail(`Could not write ${relative} — ${reason(err)}`)
+}
+
+// `mode` above only applies when the file is created, so an existing file would
+// keep whatever permissions it already had. Reported separately from the write:
+// by this point the secrets are on disk, so "could not write" would be wrong and
+// would hide that there's a plaintext file to deal with.
+try {
   await chmod(outPath, 0o600)
 } catch (err) {
   fail(
-    `Could not write ${relative} — ${err instanceof Error ? err.message : String(err)}`,
+    `Wrote ${relative} but could not restrict it to owner-only (0600) — ${reason(err)}. ` +
+      `It holds secrets in plaintext: fix its permissions or delete it.`,
   )
 }
 
