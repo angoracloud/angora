@@ -1,6 +1,7 @@
 package cloud.angora
 
 import cloud.angora.config.SecretsProvider
+import cloud.angora.config.firstOf
 import cloud.angora.config.loadSecrets
 import cloud.angora.constants.BackendConstants
 import cloud.angora.plugins.configureErrorHandling
@@ -59,24 +60,27 @@ fun Application.module() {
  * Runs Flyway, then opens the Exposed connection — in that order, so the schema is
  * always current before any query can run.
  *
- * Each setting comes from [secrets] first, then from `application.yaml`, whose
- * `${DB_URL:default}` substitution resolves the plain env var and the default.
+ * Each setting comes from [secrets] first, under either spelling, and otherwise
+ * from `application.yaml`'s `${DB_URL:default}` substitution.
  */
 private fun Application.connectDatabase(secrets: SecretsProvider): Database {
-    fun setting(secretName: String, configKey: String): String =
-        secrets.get(secretName) ?: environment.config.property(configKey).getString()
+    fun setting(vararg secretNames: String, configKey: String): String =
+        secrets.firstOf(*secretNames)
+            ?: environment.config.property(configKey).getString()
 
     val url = setting(
         BackendConstants.DatabaseDefaults.URL_ENV,
-        BackendConstants.DatabaseDefaults.URL_PROPERTY
+        configKey = BackendConstants.DatabaseDefaults.URL_PROPERTY
     )
     val user = setting(
         BackendConstants.DatabaseDefaults.USER_ENV,
-        BackendConstants.DatabaseDefaults.USER_PROPERTY
+        BackendConstants.DatabaseDefaults.USER_FALLBACK_ENV,
+        configKey = BackendConstants.DatabaseDefaults.USER_PROPERTY
     )
     val password = setting(
         BackendConstants.DatabaseDefaults.PASSWORD_ENV,
-        BackendConstants.DatabaseDefaults.PASSWORD_PROPERTY
+        BackendConstants.DatabaseDefaults.PASSWORD_FALLBACK_ENV,
+        configKey = BackendConstants.DatabaseDefaults.PASSWORD_PROPERTY
     )
 
     Flyway.configure()

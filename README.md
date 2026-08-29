@@ -274,7 +274,9 @@ node scripts/infisical-env.ts          # writes .env.infisical (gitignored)
 docker-compose --env-file .env.infisical up -d --build
 ```
 
-**This is a one-time bootstrap, not the normal way to run the stack.** Once the volume exists, `POSTGRES_PASSWORD` is ignored entirely — the container starts fine with it unset — so every later run is a plain `docker-compose up`. Postgres keeps the password it was initialized with, and the backend resolves `DB_PASSWORD` from Infisical in-process.
+**This is a one-time bootstrap, not the normal way to run the stack.** Once the volume exists, `POSTGRES_PASSWORD` is ignored entirely — the container starts fine with it unset — so every later run is a plain `docker-compose up`. Postgres keeps the password it was initialized with, and the backend resolves the same value from Infisical in-process.
+
+Store it once, as `POSTGRES_PASSWORD`. The backend calls it `DB_PASSWORD` internally but checks both spellings, so no duplicate entry is needed. Same for `POSTGRES_USER`.
 
 Two things about that bootstrap run fail quietly:
 

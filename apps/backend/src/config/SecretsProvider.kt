@@ -12,6 +12,10 @@ interface SecretsProvider {
     fun get(name: String, default: String): String = get(name) ?: default
 }
 
+/** The first of [names] this provider defines, for values with more than one spelling. */
+fun SecretsProvider.firstOf(vararg names: String): String? =
+    names.firstNotNullOfOrNull { get(it) }
+
 class EnvSecretsProvider : SecretsProvider {
     override fun get(name: String): String? = System.getenv(name)
 }

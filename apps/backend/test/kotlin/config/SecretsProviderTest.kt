@@ -38,4 +38,36 @@ class SecretsProviderTest {
         assertEquals("from-env", provider.get("ONLY_ENV"))
         assertNull(provider.get("NEITHER"))
     }
+
+    @Test
+    fun `firstOf takes the first name the provider defines`() {
+        val secrets = MapSecretsProvider(
+            mapOf("DB_PASSWORD" to "from-db-name", "POSTGRES_PASSWORD" to "from-postgres-name")
+        )
+
+        assertEquals("from-db-name", secrets.firstOf("DB_PASSWORD", "POSTGRES_PASSWORD"))
+    }
+
+    @Test
+    fun `firstOf falls through to the compose spelling`() {
+        val secrets = MapSecretsProvider(mapOf("POSTGRES_PASSWORD" to "from-postgres-name"))
+
+        assertEquals("from-postgres-name", secrets.firstOf("DB_PASSWORD", "POSTGRES_PASSWORD"))
+    }
+
+    @Test
+    fun `firstOf returns null when no name is defined, so the config default still applies`() {
+        val secrets = MapSecretsProvider(mapOf("UNRELATED" to "value"))
+
+        assertNull(secrets.firstOf("DB_PASSWORD", "POSTGRES_PASSWORD"))
+    }
+
+    @Test
+    fun `firstOf treats an empty string as defined, not absent`() {
+        val secrets = MapSecretsProvider(
+            mapOf("DB_USER" to "", "POSTGRES_USER" to "postgres-user")
+        )
+
+        assertEquals("", secrets.firstOf("DB_USER", "POSTGRES_USER"))
+    }
 }

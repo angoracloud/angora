@@ -190,12 +190,15 @@ Every 4xx/5xx response returns the same envelope:
 
 ## Database access
 
-Every configurable value goes through `SecretsProvider` (`src/config/`), built once at the top of `Application.module()`. The three database settings check the provider first, then fall back to Ktor's config:
+Every configurable value goes through `SecretsProvider` (`src/config/`), built once at the top of `Application.module()`. The three database settings check the provider first — under the `DB_*` name, then the `POSTGRES_*` one `docker-compose.yml` uses — and otherwise fall back to Ktor's config:
 
 ```kotlin
-fun setting(secretName: String, configKey: String): String =
-    secrets.get(secretName) ?: environment.config.property(configKey).getString()
+fun setting(vararg secretNames: String, configKey: String): String =
+    secrets.firstOf(*secretNames)
+        ?: environment.config.property(configKey).getString()
 ```
+
+Both spellings are checked so a secrets project stores each value once. No `DB_URL` equivalent — `POSTGRES_DB` is a database name, not a JDBC URL.
 
 That fallback resolves `application.yaml`, which holds the only config block:
 
@@ -223,8 +226,8 @@ The provider indirection is also what lets these come from Infisical instead, be
 | Variable | Default | Notes |
 | -------- | ------- | ----- |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/angora` | Compose overrides this to `postgres:5432` |
-| `DB_USER` | `angora` | |
-| `DB_PASSWORD` | `angora` | |
+| `DB_USER` | `angora` | Also looked up as `POSTGRES_USER` |
+| `DB_PASSWORD` | `angora` | Also looked up as `POSTGRES_PASSWORD` |
 | `SERVICE_TOKEN_DISCORD_BOT` | _(unset)_ | Registered into `service_tokens` at startup; must match the bot's value. Unset means the bot-sync route rejects everyone, with a warning logged |
 | `COOKIE_SECURE` | `false` | Must be `true` behind TLS; `false` locally |
 | `CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated exact origins. Empty is correct for everything this repo ships — see [Authentication](#authentication). Wildcards are rejected |

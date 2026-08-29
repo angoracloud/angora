@@ -151,6 +151,14 @@ object BackendConstants {
         const val URL_ENV = "DB_URL"
         const val USER_ENV = "DB_USER"
         const val PASSWORD_ENV = "DB_PASSWORD"
+
+        /**
+         * What compose calls the same two values. Checked as well as the `DB_*`
+         * names so a secrets project stores each one once. No `DB_URL` equivalent:
+         * `POSTGRES_DB` is a database name, not a JDBC URL.
+         */
+        const val USER_FALLBACK_ENV = "POSTGRES_USER"
+        const val PASSWORD_FALLBACK_ENV = "POSTGRES_PASSWORD"
     }
 
     /**
