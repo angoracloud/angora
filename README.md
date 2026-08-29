@@ -267,18 +267,20 @@ One stack reads one environment: the same slug goes to every service. Run dev an
 
 ### The one exception: Postgres
 
-`postgres` is a third-party image that reads `POSTGRES_PASSWORD` at `initdb` only, before any of our code runs. To cover it, feed compose's own interpolation from the host:
+`postgres` is a third-party image that reads `POSTGRES_PASSWORD` at `initdb` — the first start against an empty volume, before any of our code runs. Covering it means feeding compose's own interpolation, which happens on the host:
 
 ```bash
 node scripts/infisical-env.ts          # writes .env.infisical (gitignored)
 docker-compose --env-file .env.infisical up -d --build
 ```
 
-Two things about this fail quietly:
+**This is a one-time bootstrap, not the normal way to run the stack.** Once the volume exists, `POSTGRES_PASSWORD` is ignored entirely — the container starts fine with it unset — so every later run is a plain `docker-compose up`. Postgres keeps the password it was initialized with, and the backend resolves `DB_PASSWORD` from Infisical in-process.
 
-**`--env-file` replaces `.env` rather than merging with it.** Any variable in `.env` but not in Infisical falls back to the `:-default` in `docker-compose.yml` — `angora` for `POSTGRES_PASSWORD`, `dev-discord-bot-token` for the service token, `false` for `COOKIE_SECURE`. The Infisical project must hold **every** variable listed in [Environment Variables](#environment-variables), not just the sensitive ones.
+Two things about that bootstrap run fail quietly:
 
-**A new `POSTGRES_PASSWORD` doesn't reach an existing database.** Postgres keeps the old one while the backend picks up the new one, then fails to connect. Rotate with `ALTER USER`, or `docker-compose down -v` to recreate the volume and lose the data.
+**`--env-file` replaces `.env` rather than merging with it.** Any variable in `.env` but not in Infisical falls back to the `:-default` in `docker-compose.yml` — `angora` for `POSTGRES_PASSWORD`, `dev-discord-bot-token` for the service token, `false` for `COOKIE_SECURE`. For that one run, the Infisical project must hold **every** variable listed in [Environment Variables](#environment-variables), not just the sensitive ones.
+
+**Changing `POSTGRES_PASSWORD` later doesn't reach the database.** Re-running the script won't help: initdb has already happened. Postgres keeps the old password while the backend picks up the new one, then fails to connect. Rotate with `ALTER USER`, or `docker-compose down -v` to recreate the volume and lose the data.
 
 ## Project Structure
 

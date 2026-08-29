@@ -6,6 +6,9 @@
 // initdb, before our code runs, so compose's own interpolation has to be fed.
 // Every other service is also covered in-process by @angora/secrets.
 //
+// Run this once, to initialize the volume. Afterwards POSTGRES_PASSWORD is
+// ignored and plain `docker-compose up` is correct.
+//
 // Usage:
 //   node scripts/infisical-env.ts [--out=.env.infisical]
 //   docker-compose --env-file .env.infisical up -d --build
