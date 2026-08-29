@@ -59,7 +59,9 @@ src/
 
 `POST /api/discord/bot/sync` requires a service token — reaching the backend over the Docker network is no longer enough on its own. The bot sends `Authorization: Bearer ${SERVICE_TOKEN_DISCORD_BOT}`, and the backend registers the hash of that same value into its `service_tokens` table at startup, so **both services must be given the identical value**. `docker-compose.yml` wires one variable into both; see the root README's [Environment Variables](../../../README.md#environment-variables).
 
-The bot resolves that token (and `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `BACKEND_URL`) through [`@angora/secrets`](../../../packages/secrets/README.md) at startup rather than reading `process.env` at import time — that's what lets them come from Infisical when `INFISICAL_ENABLED=true`. With the flag off it is exactly `process.env`. `configureBackendService()` must be called with the resolved provider before any sync runs; `src/index.ts` does this immediately after `loadSecrets()`. Until it has, `syncGuildWithBackend()` logs and returns rather than syncing without the token — otherwise the backend's `401` would read as a token mismatch when the real cause is a request arriving during startup, before the Infisical fetch finished.
+That token, along with `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID` and `BACKEND_URL`, is resolved at startup through [`@angora/secrets`](../../../packages/secrets/README.md) instead of being read from `process.env` at import time. That is what lets Infisical supply them. With `INFISICAL_ENABLED` off, the values come straight from `process.env`.
+
+`configureBackendService()` has to run before any sync; `src/index.ts` calls it immediately after `loadSecrets()`. Until then `syncGuildWithBackend()` logs and returns instead of syncing without the token, so a request arriving mid-startup doesn't produce a `401` that looks like a token mismatch.
 
 If they disagree, syncing fails with `401` and the bot logs a hint naming the variable. Nothing else about the bot is affected — the Discord gateway connection, the internal HTTP server, and the healthcheck are all independent of this.
 

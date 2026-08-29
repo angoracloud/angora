@@ -145,8 +145,8 @@ object BackendConstants {
 
         /**
          * The env vars `application.yaml`'s `${VAR:default}` substitution reads.
-         * Named here too because [SecretsProvider] is consulted for them *before*
-         * the config property, so Infisical can supply them when it's enabled.
+         * Named here too because the provider is consulted before the config
+         * property, so Infisical can supply them.
          */
         const val URL_ENV = "DB_URL"
         const val USER_ENV = "DB_USER"
@@ -154,9 +154,8 @@ object BackendConstants {
     }
 
     /**
-     * Infisical secret sourcing. Mirrors `INFISICAL_CONFIG` in
-     * `packages/secrets/src/constants.ts` — the JS services talk to the same API
-     * with the same variable names, so the two must stay in sync.
+     * Mirrors `INFISICAL_CONFIG` in `packages/secrets/src/constants.ts`. Same API,
+     * same variable names; keep the two in sync.
      */
     object Infisical {
         /** Master switch. Anything but [ENABLED_VALUE] leaves the env-only path in place. */
@@ -192,11 +191,7 @@ object BackendConstants {
         /** HTTP statuses treated as success by the two Infisical calls. */
         val SUCCESS_STATUS_RANGE = 200..299
 
-        /**
-         * Startup failure messages. These reach the operator through a thrown
-         * exception, never a caller — the app refuses to start rather than
-         * silently serving the dev defaults in `docker-compose.yml`.
-         */
+        /** Startup failure messages, thrown to abort boot. Never sent to a caller. */
         object Failures {
             const val MISSING_PROJECT_ID =
                 "$ENABLED_ENV is set but $PROJECT_ID_ENV is missing"

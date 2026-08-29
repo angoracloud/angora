@@ -5,10 +5,7 @@ import {
   type FetchLike,
 } from './infisical.js'
 
-/**
- * Read-only view over the resolved secrets for one service. Callers never branch
- * on where a value came from.
- */
+/** Read-only view over the resolved secrets. Callers never branch on the source. */
 export interface SecretsProvider {
   get(name: string): string | undefined
   get(name: string, fallback: string): string
@@ -26,17 +23,12 @@ function providerFrom(
 }
 
 /**
- * Resolves this service's secrets once, at startup.
+ * Resolves this service's secrets once, at startup: Infisical when enabled,
+ * otherwise `process.env`. Rotating a secret needs a restart.
  *
- * With `INFISICAL_ENABLED` unset this is just `process.env`. With it set,
- * Infisical values win and the environment stays the fallback for names the
- * project doesn't define.
- *
- * Rejects if Infisical is enabled but unreachable, and callers are expected to
- * exit. Serving environment values instead would let a service boot on the
- * angora/angora credentials in docker-compose.yml and look healthy.
- *
- * Read once — rotating a secret needs a restart.
+ * Rejects if Infisical is enabled but unreachable, and callers exit; serving
+ * environment values would boot the service on the dev credentials in
+ * `docker-compose.yml`.
  */
 export async function loadSecrets(
   env: EnvSource = process.env,

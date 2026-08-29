@@ -7,11 +7,8 @@ import java.nio.charset.StandardCharsets
 
 /**
  * A real HTTP server standing in for Infisical, so the client is exercised over an
- * actual socket rather than against a mock of `java.net.http.HttpClient`.
- *
- * Uses the JDK's own `com.sun.net.httpserver`, keeping this test support free of
- * any new dependency — the same reason the production client uses
- * `java.net.http.HttpClient` rather than the official SDK.
+ * actual socket instead of a mocked `HttpClient`. Uses the JDK's own
+ * `com.sun.net.httpserver`, so it adds no test dependency.
  */
 class FakeInfisicalServer(
     loginPath: String,

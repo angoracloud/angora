@@ -25,9 +25,8 @@ function trimmed(env: EnvSource, name: string): string | undefined {
 }
 
 /**
- * Builds the connection config, failing on anything missing. Only reached when
- * Infisical is enabled, so an incomplete configuration is an operator error
- * rather than a reason to fall back.
+ * Builds the connection config, throwing on anything missing. Only reached when
+ * Infisical is enabled, so an incomplete configuration is an operator error.
  */
 function resolveConfig(env: EnvSource): InfisicalConfig {
   const projectId = trimmed(env, INFISICAL_CONFIG.PROJECT_ID_ENV)
@@ -73,7 +72,6 @@ function request(): RequestInit {
   return { signal: AbortSignal.timeout(INFISICAL_CONFIG.REQUEST_TIMEOUT_MS) }
 }
 
-/** Exchanges client credentials for a short-lived access token. */
 async function login(
   config: InfisicalConfig,
   fetchImpl: FetchLike,
@@ -99,7 +97,6 @@ async function login(
   return accessToken
 }
 
-/** Fetches every secret at the configured project/environment/path. */
 export async function fetchInfisicalSecrets(
   env: EnvSource,
   fetchImpl: FetchLike = globalThis.fetch,

@@ -1,22 +1,17 @@
 #!/usr/bin/env node
-// Writes an env file docker-compose can read, so `${VAR}` interpolation in
-// docker-compose.yml resolves from Infisical instead of `.env`.
+// Writes an env file for `docker-compose --env-file`, so `${VAR}` interpolation
+// resolves from Infisical instead of `.env`.
 //
-// This exists for one reason: `postgres` runs a third-party image, so no code of
-// ours can feed it POSTGRES_PASSWORD — and that variable is only read at initdb,
-// on the first start against an empty volume. Compose interpolation happens on
-// the host before any container starts, so covering Postgres means getting the
-// values in here. Every other service is covered twice over: once through this
-// file, and once in-process via @angora/secrets / the backend's SecretsProvider.
+// Exists for postgres: it's a third-party image that reads POSTGRES_PASSWORD at
+// initdb, before our code runs, so compose's own interpolation has to be fed.
+// Every other service is also covered in-process by @angora/secrets.
 //
 // Usage:
 //   node scripts/infisical-env.ts [--out=.env.infisical]
 //   docker-compose --env-file .env.infisical up -d --build
 //
-// Self-contained rather than importing @angora/secrets: Node runs .ts directly
-// (same as check-dependency-age.ts), but it won't resolve a `.js` specifier to a
-// `.ts` file, which is what that package's nodenext imports use. Keep them in
-// sync — the API shape is the same.
+// Duplicates the two calls in packages/secrets/src/infisical.ts because Node
+// won't resolve that package's `.js` specifiers to `.ts` files. Keep them in sync.
 
 import { rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -27,18 +22,13 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const DEFAULT_OUT = '.env.infisical'
 
 /**
- * The output file holds secrets in plaintext, and `.gitignore` keeps it out of
- * history via the `.env` / `.env.*` block. That rule is filename-based, so an
- * `--out=` pointing anywhere else (`secrets.env`, `compose.env`) would be
- * committable — require the name to stay inside what the rule covers.
+ * `.gitignore` keeps this plaintext secrets file out of history by filename, via
+ * its `.env` / `.env.*` block. An `--out=secrets.env` would be committable, so
+ * require the name to stay inside that rule.
  */
 const OUT_PREFIX = '.env'
 
-/**
- * A POSIX environment variable name. Compose's env-file parser takes the rest of
- * the line as the value, so a key containing a newline would inject additional
- * variables — see `render`.
- */
+/** A POSIX environment variable name. See `render` for why this is enforced. */
 const VALID_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 // Infisical Cloud (EU). US Cloud is https://app.infisical.com; self-hosted
@@ -136,15 +126,12 @@ async function fetchSecrets(): Promise<Record<string, string>> {
 }
 
 /**
- * docker-compose reads this file itself, and its parser takes the whole rest of
- * the line as the value — no shell quoting, no escapes.
+ * Compose's env-file parser takes the whole rest of the line as the value, with
+ * no quoting or escapes, so both halves of `KEY=VALUE` are untrusted input.
  *
- * That makes both halves of a `KEY=VALUE` line untrusted input. A value
- * containing a newline can't be represented at all, and a *key* containing one
- * would inject further lines: a secret named `A\nPOSTGRES_PASSWORD=x` writes a
- * second variable that overrides the compose default. Whoever can name a secret
- * in the project would otherwise be able to set any variable in the file — so
- * reject both rather than emitting something that parses as more than it says.
+ * A newline in a value can't be represented. A newline in a *key* injects extra
+ * lines: a secret named `A\nPOSTGRES_PASSWORD=x` sets a second variable. Reject
+ * both so the file never parses as more than it says.
  */
 function render(secrets: Record<string, string>): string {
   const lines = [
@@ -183,10 +170,8 @@ if (!path.basename(outPath).startsWith(OUT_PREFIX)) {
   )
 }
 
-// A network failure here would otherwise surface as a bare `TypeError: fetch
-// failed` stack trace, which says nothing about what an operator should check.
-// Scoped to the fetch alone: a failure to write the file below is a different
-// problem and gets its own message, rather than being blamed on the network.
+// Scoped to the fetch, so a write failure below isn't blamed on the network.
+// Otherwise this surfaces as a bare `TypeError: fetch failed`.
 const secrets = await fetchSecrets().catch((err: unknown) =>
   fail(
     `Could not reach Infisical at ${env('INFISICAL_DOMAIN') ?? DEFAULT_DOMAIN} — ${reason(err)}`,
@@ -196,14 +181,10 @@ const secrets = await fetchSecrets().catch((err: unknown) =>
 const contents = render(secrets)
 const relative = path.relative(ROOT, outPath)
 
-// Remove first, then create exclusively. Two reasons, both about the fact that
-// this file holds secrets in plaintext:
-//
-//   - `mode` is only honored when the file is created, so writing over an
-//     existing file would leave whatever permissions it already had.
-//   - a plain write follows symlinks. A symlink pre-planted at this path would
-//     redirect the secrets to its target; `wx` (O_CREAT|O_EXCL) refuses a
-//     symlink outright, so the unlink-then-create pair can't be steered.
+// Remove, then create exclusively. `mode` is only honored on creation, so writing
+// over an existing file would keep its old permissions. And a plain write follows
+// symlinks: `wx` (O_CREAT|O_EXCL) refuses one, so a symlink pre-planted at this
+// path can't redirect the secrets to its target.
 try {
   await rm(outPath, { force: true })
   await writeFile(outPath, contents, { flag: 'wx', mode: 0o600 })

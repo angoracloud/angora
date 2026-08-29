@@ -333,7 +333,7 @@ Every value above can instead be sourced from Infisical — see the next section
 
 Keeping production secrets in a `.env.production` file works, but it means the real database password and service tokens live in plaintext on whatever host runs the stack. Angora can read them from [Infisical](https://infisical.com) instead, behind a single flag.
 
-**It is off by default.** With `INFISICAL_ENABLED` unset or `false`, every service reads plain environment variables exactly as documented above, and nothing reaches out to the network. Nothing about the default setup changes.
+**It is off by default.** With `INFISICAL_ENABLED` unset or `false`, every service reads plain environment variables as documented above, and nothing touches the network.
 
 | Variable | Default | Notes |
 | ---------- | --------- | ------- |
@@ -349,19 +349,23 @@ Keeping production secrets in a `.env.production` file works, but it means the r
 
 Each service fetches its secrets once at startup and prefers them over the environment, which stays the fallback for anything the project doesn't define. Rotating a secret requires a restart; there is no polling.
 
-If Infisical is enabled but unreachable or misconfigured, services refuse to start rather than falling back to the environment. A silent fallback would let a production deployment boot on the `angora`/`angora` development credentials and report healthy.
+If Infisical is enabled but unreachable or misconfigured, services refuse to start. A silent fallback to the environment would let a production deployment boot on the `angora`/`angora` development credentials and report healthy.
 
 ### Environments
 
 An Infisical project holds several environments (`dev`, `staging`, `prod`, plus any you add). `INFISICAL_ENV` picks which one this deployment reads, by slug — it defaults to `dev`, and `.env.production.example` ships with `prod`.
 
-One stack reads one environment: the same slug goes to every service, so `backend` and the bots always see a consistent set. Running dev and prod side by side means two stacks with different `INFISICAL_ENV` values, not one stack straddling both. `INFISICAL_SECRET_PATH` narrows further within the chosen environment if you keep secrets in folders (`/`, the default, reads the root).
+One stack reads one environment. The same slug goes to every service, so the backend and the bots always see a consistent set. To run dev and prod side by side, use two stacks with different `INFISICAL_ENV` values rather than one stack straddling both.
+
+If you keep secrets in folders, `INFISICAL_SECRET_PATH` narrows further within the chosen environment. The default, `/`, reads the root.
 
 Note that the slug is what matters, not the display name — Infisical's UI shows "Development" for the `dev` slug.
 
 ### The frontend has no secrets
 
-`apps/frontend` is deliberately not wired into any of this. It's compiled to static assets by Vite and served by nginx, so anything given to it at build time ships to every visitor in the bundle — a secret there wouldn't be secret. It talks to the API on the same origin via a relative `/api` path, authenticated by the session cookie the browser already holds, so it needs no credentials of its own. `GIT_SHA` is the only build-time value it takes, and that's a commit hash.
+`apps/frontend` is deliberately not wired into any of this. Vite compiles it to static assets served by nginx, so anything given to it at build time ships to every visitor in the bundle. A secret there wouldn't be secret.
+
+It also doesn't need one. It calls the API on the same origin via a relative `/api` path, authenticated by the session cookie the browser already holds. Its only build-time value is `GIT_SHA`, a commit hash.
 
 ### The one exception: Postgres
 
@@ -378,7 +382,11 @@ That feeds compose's own `${VAR}` interpolation, so every service — including 
 
 ### Self-hosted vs. Cloud
 
-Both work. Point `INFISICAL_DOMAIN` at your own instance to self-host, or leave the default for Infisical Cloud's EU region. Infisical Cloud's two regions are separate deployments with separate data — a project created in one is not visible from the other — so a US-region project needs `INFISICAL_DOMAIN=https://app.infisical.com` set explicitly. The machine identity credentials are the one pair that can't live in Infisical itself — treat them as the root credential and scope the identity to just the project and environment it needs.
+Both work. Point `INFISICAL_DOMAIN` at your own instance to self-host, or leave the default for Infisical Cloud's EU region.
+
+The two Cloud regions are separate deployments holding separate data: a project created in one is not visible from the other. A US-region project needs `INFISICAL_DOMAIN=https://app.infisical.com` set explicitly.
+
+The machine identity credentials are the one pair that can't live in Infisical itself. Treat them as the root credential, and scope the identity to just the project and environment it needs.
 
 ## Project Structure
 

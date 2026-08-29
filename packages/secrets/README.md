@@ -22,7 +22,7 @@ The variables it reads are documented in the root [`.env.example`](../../.env.ex
 
 ## Two things not to change without thinking
 
-**It rejects rather than falling back.** If Infisical is enabled but unreachable, `loadSecrets()` rejects and callers exit. Serving environment values instead would let a production service boot on the `angora`/`angora` credentials in `docker-compose.yml` and report healthy. Don't catch and continue.
+**It rejects rather than falling back.** If Infisical is enabled but unreachable, `loadSecrets()` rejects and callers exit. Don't catch and continue — the root [README](../../README.md#secret-management-infisical) explains what a silent fallback would boot on.
 
 **Secrets are read once, at startup.** Rotating one needs a restart. There's no polling.
 

@@ -1,9 +1,6 @@
-# Build context is the repo root (see docker-compose.yml), not this
-# directory, so the build can see the shared `@angora/config` and
-# `@angora/secrets` workspace packages that this bot's config extends and
-# its code imports.
+# Build context is the repo root (see docker-compose.yml), so the build can see
+# the shared @angora/config and @angora/secrets workspace packages.
 
-# Stage 1: Build & Prune Dependencies
 FROM node:24-alpine AS build-stage
 WORKDIR /workspace
 
@@ -15,16 +12,15 @@ COPY apps/frontend ./apps/frontend
 COPY apps/bots ./apps/bots
 RUN pnpm install --frozen-lockfile
 
-# The `...` suffix builds this bot's workspace dependencies first —
-# @angora/secrets emits the dist/ + .d.ts that tsc here resolves.
+# The `...` suffix builds workspace dependencies first: @angora/secrets emits the
+# dist/ + .d.ts that tsc resolves here.
 RUN pnpm --filter angora-slack-bot... run build
 
-# Extract standalone production dependencies to /deploy-output. This bot's only
-# runtime dependency is the workspace's own @angora/secrets, but it still needs a
-# real node_modules to resolve it — the runtime image used to ship dist/ alone.
+# Extract production dependencies to /deploy-output. @angora/secrets is the only
+# one, but resolving it still needs a real node_modules; this image shipped dist/
+# alone before.
 RUN pnpm --filter=angora-slack-bot deploy --prod --legacy /deploy-output
 
-# Stage 2: Clean Production Runtime Container
 FROM node:24-alpine AS production-stage
 WORKDIR /app
 

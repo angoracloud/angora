@@ -7,16 +7,13 @@ import {
 import { startInternalHttpServer } from './server/internalHttpServer.js'
 import { configureBackendService } from './services/backendService.js'
 
-// Initialize Discord Gateway Client & Internal HTTP Control Server.
-// Both start unconditionally, and before any secret is resolved, so the
-// container has a listening health endpoint regardless of whether real Discord
-// credentials are configured — docker-compose's healthcheck depends on it.
+// Both start unconditionally, and before secrets resolve, so the health endpoint
+// is listening for docker-compose's healthcheck even without real credentials.
 const client = createDiscordClient()
 startInternalHttpServer(client, BOT_CONFIG.DEFAULT_PORT)
 
-// Env vars by default; Infisical when INFISICAL_ENABLED=true. A failure here is
-// fatal on purpose — carrying on would mean running with whatever placeholder
-// credentials happen to be in the environment. See @angora/secrets.
+// Fatal on purpose: continuing would run on whatever placeholder credentials
+// happen to be in the environment.
 const secrets = await loadSecrets().catch((err: unknown) => {
   console.error('[Discord Bot] Could not load secrets:', err)
   process.exit(1)

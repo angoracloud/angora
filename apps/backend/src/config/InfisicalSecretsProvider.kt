@@ -13,7 +13,6 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
 
-/** Everything needed to talk to one Infisical project/environment/path. */
 data class InfisicalConfig(
     val domain: String,
     val projectId: String,
@@ -25,10 +24,8 @@ data class InfisicalConfig(
 )
 
 /**
- * Serves secrets fetched from Infisical at startup, falling back to [fallback]
- * — the environment — for any name the project doesn't define.
- *
- * The map is captured once. Rotating a secret requires a restart.
+ * Serves secrets fetched at startup, falling back to [fallback] for any name the
+ * project doesn't define. The map is captured once, so rotating needs a restart.
  */
 class InfisicalSecretsProvider(
     secrets: Map<String, String>,
@@ -65,10 +62,9 @@ private data class ListSecretsResponse(
 /**
  * Talks to Infisical's REST API over the JDK's own HTTP client.
  *
- * Not the official `com.infisical:sdk`: it carries `spring-boot-starter-parent`
- * as its parent POM plus okhttp 2.7.5 and logback 1.3.14 (this module pins
- * 1.5.38), all of which would end up shaded into `backend.jar`. Two REST calls
- * were cheaper than that dependency tree.
+ * Not the official `com.infisical:sdk`: its parent POM is
+ * `spring-boot-starter-parent`, and it pulls okhttp 2.7.5 and logback 1.3.14
+ * (this module pins 1.5.38) into `backend.jar` via the shade plugin.
  */
 object InfisicalClient {
 
@@ -78,9 +74,9 @@ object InfisicalClient {
         env.get(BackendConstants.Infisical.ENABLED_ENV) == BackendConstants.Infisical.ENABLED_VALUE
 
     /**
-     * Builds the connection config from the environment, failing loudly on
-     * anything missing. Only reached when [isEnabled] is true, so an incomplete
-     * configuration is an operator error rather than a reason to fall back.
+     * Builds the connection config, throwing on anything missing. Only reached
+     * when [isEnabled] is true, so an incomplete configuration is an operator
+     * error.
      */
     fun resolveConfig(env: SecretsProvider): InfisicalConfig {
         val projectId = env.trimmed(BackendConstants.Infisical.PROJECT_ID_ENV)
@@ -108,11 +104,7 @@ object InfisicalClient {
         )
     }
 
-    /**
-     * Fetches every secret at the configured project/environment/path.
-     *
-     * Throws on any failure; the caller is expected to let that abort startup.
-     */
+    /** Throws on any failure; the caller lets that abort startup. */
     fun fetchSecrets(
         config: InfisicalConfig,
         httpClient: HttpClient = HttpClient.newHttpClient()
@@ -144,10 +136,7 @@ object InfisicalClient {
             .toMap()
     }
 
-    /**
-     * Exchanges a machine identity's client credentials for a short-lived access
-     * token. Skipped when a pre-issued token is configured.
-     */
+    /** Skipped when a pre-issued token is configured. */
     private fun login(config: InfisicalConfig, httpClient: HttpClient): String {
         val body = json.encodeToString(
             UniversalAuthLoginRequest(
@@ -175,9 +164,8 @@ object InfisicalClient {
     }
 
     /**
-     * Sends the request, translating a transport failure into a message that
-     * names the domain. Without this the operator gets a bare `ConnectException`
-     * stack trace that never mentions Infisical or where it tried to connect.
+     * Names the domain in transport failures. Without this the operator gets a
+     * bare `ConnectException` that never mentions Infisical.
      */
     private fun send(
         request: HttpRequest,

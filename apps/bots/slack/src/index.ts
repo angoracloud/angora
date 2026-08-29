@@ -21,10 +21,8 @@ server.listen(BOT_CONFIG.DEFAULT_PORT, () => {
   console.log('Slack Bot ready')
 })
 
-// This bot consumes no secrets of its own yet, so nothing here reads from the
-// result. Resolving them anyway keeps every service on the same startup contract:
-// if INFISICAL_ENABLED is set but misconfigured, this bot fails loudly at boot
-// alongside the others rather than looking healthy while the stack is broken.
+// No secrets of its own yet; the result is discarded. Resolving them anyway means
+// this bot fails at boot on a broken Infisical config, like every other service.
 await loadSecrets().catch((err: unknown) => {
   console.error('[Slack Bot] Could not load secrets:', err)
   process.exit(1)

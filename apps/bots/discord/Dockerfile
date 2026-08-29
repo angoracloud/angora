@@ -1,7 +1,6 @@
 # Build context is the repo root (see docker-compose.yml) so the build
 # can access shared @angora/config workspace dependencies.
 
-# Stage 1: Build & Prune Dependencies
 FROM node:24-alpine AS build-stage
 WORKDIR /workspace
 
@@ -13,15 +12,14 @@ COPY apps/frontend ./apps/frontend
 COPY apps/bots ./apps/bots
 RUN pnpm install --frozen-lockfile
 
-# Compile TypeScript to JavaScript. The `...` suffix builds this bot's workspace
-# dependencies first — @angora/secrets emits the dist/ + .d.ts that tsc here resolves.
+# Compile TypeScript. The `...` suffix builds workspace dependencies first:
+# @angora/secrets emits the dist/ + .d.ts that tsc resolves here.
 RUN pnpm --filter angora-discord-bot... run build
 
 # Extract standalone production dependencies to /deploy-output
 WORKDIR /workspace
 RUN pnpm --filter=angora-discord-bot deploy --prod --legacy /deploy-output
 
-# Stage 2: Clean Production Runtime Container
 FROM node:24-alpine AS production-stage
 WORKDIR /app
 

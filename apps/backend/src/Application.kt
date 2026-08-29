@@ -59,9 +59,8 @@ fun Application.module() {
  * Runs Flyway, then opens the Exposed connection — in that order, so the schema is
  * always current before any query can run.
  *
- * Each setting is read from [secrets] first, then from `application.yaml`, whose
- * `${DB_URL:default}` substitution already resolves the plain env var and the
- * built-in default. So with Infisical off this behaves exactly as it always has.
+ * Each setting comes from [secrets] first, then from `application.yaml`, whose
+ * `${DB_URL:default}` substitution resolves the plain env var and the default.
  */
 private fun Application.connectDatabase(secrets: SecretsProvider): Database {
     fun setting(secretName: String, configKey: String): String =
