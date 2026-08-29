@@ -1,16 +1,12 @@
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 
-// Shared by every package. Flavor-specific files (react.mjs, node.mjs) add
-// their own globals/plugins on top and append eslint-config-prettier last.
+// Shared by every package. react.mjs and node.mjs add their own globals and
+// plugins on top, then append eslint-config-prettier last.
 //
-// This stays plain JS (not .ts) deliberately: jiti — the loader ESLint uses
-// for TypeScript config files — breaks when it has to transform a chain of
-// .ts files that transitively import typescript-eslint (it interferes with
-// typescript-eslint's own interop with the `typescript` package). The
-// app-level eslint.config.ts entry files are real TypeScript; this and its
-// siblings (react.mjs, node.mjs) are the one place in packages/config that
-// stays .mjs for that reason.
+// Stays plain JS, not .ts: loading a TypeScript ESLint config needs jiti, and
+// adding it surfaced an unconditional crash in typescript-eslint against this
+// repo's TypeScript 7. See ../README.md.
 /** @type {import('eslint').Linter.Config[]} */
 export const base = [
   { ignores: ['dist/**', 'node_modules/**'] },

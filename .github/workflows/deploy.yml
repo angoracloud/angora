@@ -1,17 +1,8 @@
-# Placeholder deploy workflow.
+# Placeholder, intentionally inert: `workflow_dispatch` only runs on a manual
+# trigger, never on push or merge.
 #
-# This is intentionally inert: `workflow_dispatch` means it only runs when
-# someone manually triggers it from the Actions tab (or `gh workflow run
-# deploy.yml`) — it will never fire on a push or merge on its own.
-#
-# To activate real auto-deploy on merge to main:
-#   1. Replace the TODO steps below with real ones (push images to a
-#      registry, SSH to a host, hit a deploy webhook, etc.) once a real
-#      target exists.
-#   2. Change the trigger to:
-#        on:
-#          push:
-#            branches: [main]
+# To activate: replace the TODO steps below with real ones, then change the
+# trigger to `on: push: branches: [main]`.
 name: Deploy
 
 on:
