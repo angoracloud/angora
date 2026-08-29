@@ -66,7 +66,7 @@ Every service can source its secrets from Infisical instead of the environment, 
 Three rules that are easy to break:
 
 1. **Enabled + unreachable must stay fatal.** Services throw at startup rather than falling back, so a misconfiguration can't quietly boot the stack on the `angora`/`angora` dev credentials in `docker-compose.yml`. Don't add a "graceful degradation" fallback.
-2. **Postgres is the exception.** It's a third-party image and only reads `POSTGRES_PASSWORD` at initdb, before any of our code runs. Sourcing it from Infisical means feeding compose itself — `node scripts/infisical-env.ts && docker-compose --env-file .env.infisical up -d --build`.
+2. **Postgres is the exception.** It's a third-party image and only reads `POSTGRES_PASSWORD` at initdb, before any of our code runs. Sourcing it from Infisical means feeding compose itself — `node scripts/infisical-env.ts && docker-compose --env-file .env.infisical up -d --build`. Two consequences that bite silently: `--env-file` makes compose read that file *instead of* `.env`, so the Infisical project must hold every variable listed above or it reverts to the `:-default`; and rotating `POSTGRES_PASSWORD` needs `ALTER USER` or `down -v`, since initdb has already run.
 3. **The variable names live in three places** — `BackendConstants.Infisical`, `packages/secrets/src/constants.ts`, and `scripts/infisical-env.ts`. Change one, check the other two.
 
 `SERVICE_TOKEN_DISCORD_BOT` is read by **two** services (`backend` and `discord-bot`) and they must see the same value — the backend registers its hash, the bot presents the raw token. Changing it in one place only breaks guild syncing with a 401.

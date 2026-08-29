@@ -73,225 +73,139 @@ flowchart TD
 
 ## Container Runtime
 
-Every `docker` / `docker-compose` command in this README and the module docs works the same with **Podman**: swap `docker-compose` for `podman-compose` (or the `podman compose` subcommand on Podman 4+, which delegates to whichever compose provider is installed — `podman-compose` here) and `docker` for `podman`. Both read the same `docker-compose.yml`, so nothing else about the setup changes. Verified against Podman 5.7.0 / `podman-compose` 1.5.0.
+Every `docker` / `docker-compose` command in these docs works with **Podman**: swap in `podman` and `podman-compose`. Both read the same `docker-compose.yml`. Verified against Podman 5.7.0 / `podman-compose` 1.5.0.
 
 ```bash
-# Docker
-docker-compose up --build
-docker ps
-
-# Podman equivalent
-podman-compose up --build
-podman ps
+docker-compose up --build     # Docker
+podman-compose up --build     # Podman
 ```
 
-If you don't have Docker installed at all, use Podman throughout — none of the instructions below assume one specifically, they just show `docker`/`docker-compose` since that's this repo's primary-documented runtime.
+The docs show `docker` throughout only because that's the primary-documented runtime; nothing assumes it.
 
 ## Modules
 
-Each service has its own README with service-specific setup, commands, and troubleshooting. Kept here at the root: the docker-compose quickstart, environment variables, dependency/CI/hooks conventions, and anything else that spans more than one module.
+Each module has its own README (setup, commands, troubleshooting) and `AGENTS.md`. The root keeps what spans more than one: the compose quickstart, environment variables, and the dependency/CI/hook conventions.
 
 | Module | Docs |
 | -------- | ------ |
-| Backend (KTor + Exposed ORM) | [`apps/backend/README.md`](apps/backend/README.md) |
-| Frontend (React + Vite) | [`apps/frontend/README.md`](apps/frontend/README.md) |
-| Slack bot | [`apps/bots/slack/README.md`](apps/bots/slack/README.md) |
-| Discord bot | [`apps/bots/discord/README.md`](apps/bots/discord/README.md) |
-| Email bot | [`apps/bots/email/README.md`](apps/bots/email/README.md) |
-| Shared TS/ESLint/Prettier/Vite config (`@angora/config`) | [`packages/config/README.md`](packages/config/README.md) |
-| Shared secrets loader (`@angora/secrets`) | [`packages/secrets/README.md`](packages/secrets/README.md) |
+| Backend (KTor + Exposed ORM) | [`apps/backend`](apps/backend/README.md) |
+| Frontend (React + Vite) | [`apps/frontend`](apps/frontend/README.md) |
+| Slack / Discord / Email bots | [`slack`](apps/bots/slack/README.md) · [`discord`](apps/bots/discord/README.md) · [`email`](apps/bots/email/README.md) |
+| `@angora/config` — shared TS/ESLint/Prettier/Vite config | [`packages/config`](packages/config/README.md) |
+| `@angora/secrets` — runtime secret loading | [`packages/secrets`](packages/secrets/README.md) |
 
 ## Prerequisites
 
-To run the whole stack, you only need a container runtime — either:
+A container runtime is all you need to run the stack: Docker + Compose v2, or Podman + `podman-compose` (see [Container Runtime](#container-runtime)).
 
-- **Docker** and **Docker Compose v2** (`docker compose version` or `docker-compose version`), or
-- **Podman** and `podman-compose` (`podman --version` and `podman-compose --version`) — see [Container Runtime](#container-runtime)
-
-To develop a service outside its container (faster feedback loop than rebuilding an image on every change), you'll also need, depending on what you're touching:
+To develop a service outside its container:
 
 | Working on | Install |
 | ------------ | --------- |
-| Frontend (`apps/frontend`) or bots (`apps/bots/*`) | Node.js 24.x and pnpm — `corepack enable` picks up the version pinned in [package.json](package.json)'s `packageManager` field automatically; otherwise `npm install -g pnpm@11.13.1` |
-| Backend (`apps/backend`) | JDK 25 and Maven |
+| Frontend or bots | Node.js 24.x and pnpm — `corepack enable` picks up the pinned version, or `npm install -g pnpm@11.13.1` |
+| Backend | JDK 25 and Maven |
 
 ## Running the App
 
 ```bash
-# Clone the repo, then from its root:
-docker-compose up --build
+docker-compose up --build          # add -d to background it
 ```
 
-This will:
-
-1. Start PostgreSQL on port 5432
-2. Start the KTor backend on port 8080
-3. Start the React frontend on port 3000
-4. Start all bot services (Slack, Discord, Email)
-
-Once it's up:
-
 - Frontend: [http://localhost:3000](http://localhost:3000)
-- Backend health check: [http://localhost:8080/api/health](http://localhost:8080/api/health)
+- Backend health: [http://localhost:8080/api/health](http://localhost:8080/api/health)
 
-Run it in the background with `docker-compose up --build -d`, watch logs with `docker-compose logs -f`, and stop everything with `docker-compose down` (see [Docker Compose Commands](#docker-compose-commands) for more).
+Logs with `docker-compose logs -f`, stop with `docker-compose down`. More in [Docker Compose Commands](#docker-compose-commands).
 
 ## Services
 
-| Service | Port | Description | Container |
-| --------- | ------ | -------------- | ----------- |
-| postgres | 5432 | PostgreSQL database | angora-postgres |
-| backend | 8080 | KTor REST API | angora-backend |
-| frontend | 3000 | React web application | angora-frontend |
-| slack-bot | 3002 (internal only) | Slack integration bot | angora-slack-bot |
-| discord-bot | 3001 (internal only) | Discord integration bot | angora-discord-bot |
-| email-bot | 3003 (internal only) | Email processing bot | angora-email-bot |
+| Service | Port | Container |
+| --------- | ------ | ----------- |
+| postgres | 5432 | angora-postgres |
+| backend | 8080 | angora-backend |
+| frontend | 3000 | angora-frontend |
+| discord-bot | 3001 *(internal)* | angora-discord-bot |
+| slack-bot | 3002 *(internal)* | angora-slack-bot |
+| email-bot | 3003 *(internal)* | angora-email-bot |
 
-"Internal only" ports aren't published to the host (no `ports:` mapping in `docker-compose.yml`) — reachable from other containers on `angora-network` only, and used for the bots' healthchecks (see [Health Checks](#health-checks)).
+Internal ports have no `ports:` mapping — they're reachable only from `angora-network`, and used for the bots' [healthchecks](#health-checks).
 
 ## Development
 
-Running everything through `docker-compose up --build` works, but rebuilding an image for every code change is slow. For active development, run Postgres (and whichever services you're _not_ editing) in Docker, and run the service you're actually working on directly on your machine — see each module's README for the specifics.
-
-Two root-level scripts run the frontend/backend dev servers without `cd`-ing into their directories first:
+Rebuilding an image per change is slow. Run Postgres (and anything you're not editing) in containers, and the service you're working on directly — see each module's README.
 
 ```bash
-docker-compose up -d postgres   # backend needs this running
+docker-compose up -d postgres   # backend needs this
 
-pnpm run dev:frontend   # vite dev server on :3000
-pnpm run dev:backend    # Ktor hot-reload server on :8080 — requires JDK 25 + Maven on PATH
+pnpm install            # frontend, all 3 bots, packages/*; also installs git hooks
+pnpm run dev:frontend   # vite on :3000
+pnpm run dev:backend    # Ktor hot-reload on :8080, needs JDK 25 + Maven
 ```
 
-Install JS/TS dependencies once from the repo root — this covers the frontend, all three bots, and the shared `packages/config` and `packages/secrets`, and also sets up the git hooks described in [CI, Git Hooks & Deployment](#ci-git-hooks--deployment):
+These run across every JS/TS package at once, and are exactly what CI runs:
 
 ```bash
-pnpm install
-```
-
-Root-level aggregate scripts run the same check across every JS/TS package at once — useful before pushing, and exactly what CI runs:
-
-```bash
-pnpm run lint          # eslint across frontend + all 3 bots
-pnpm run typecheck     # tsc --noEmit across frontend + all 3 bots
-pnpm run test          # vitest across frontend + all 3 bots
-pnpm run format:check  # prettier, repo-wide (pnpm run format to auto-fix)
+pnpm run lint
+pnpm run typecheck
+pnpm run test
+pnpm run format:check   # pnpm run format to auto-fix
 ```
 
 ## Dependency Management
 
 ### Pinning
 
-Every dependency in this repo is pinned to an exact version — no `^`/`~` ranges in `package.json`, no version ranges or `LATEST`/`RELEASE` in `pom.xml`. Upgrades are explicit, reviewed edits, not something that happens silently on a fresh `install`.
+Every dependency is pinned to an exact version — no `^`/`~` in `package.json`, no ranges or `LATEST`/`RELEASE` in `pom.xml`. Upgrades are explicit, reviewed edits.
 
-### Sharing versions across packages (pnpm catalog)
+### Sharing versions (pnpm catalog)
 
-The workspace (`apps/frontend` + the three bots + `packages/config` + `packages/secrets`) uses a [pnpm catalog](https://pnpm.io/catalogs) for dependencies used by more than one package, all defined once in `pnpm-workspace.yaml`:
+Dependencies used by more than one JS package are defined once in `pnpm-workspace.yaml` under [`catalog:`](https://pnpm.io/catalogs) — `typescript`, `eslint`, `vite`, `vitest`, `prettier`, `@types/node` and the ESLint plugins. Each `package.json` references them as `"typescript": "catalog:"`, so a bump is one line plus `pnpm install`.
 
-```yaml
-catalog:
-  typescript: 7.0.2
-  eslint: 10.7.0
-  typescript-eslint: 8.63.0
-  '@eslint/js': 10.0.1
-  globals: 17.7.0
-  eslint-config-prettier: 10.1.8
-  eslint-plugin-react-hooks: 7.1.1
-  eslint-plugin-react-refresh: 0.5.3
-  prettier: 3.9.5
-  vite: 8.1.4
-  vitest: 4.1.10
-  '@types/node': 24.13.3
-```
+The backend is a single Maven module, so its versions already live in one place: `apps/backend/pom.xml`.
 
-Each `package.json` references an entry as `"typescript": "catalog:"` instead of repeating the version. To bump one everywhere, edit the single line in `pnpm-workspace.yaml` and run `pnpm install`. The backend is a single Maven module, so there's no equivalent "share across modules" story on that side — its versions already live in one place, `apps/backend/pom.xml`.
+Tool configs (TypeScript, ESLint, Prettier, Vite) come from [`packages/config`](packages/config/README.md).
 
-### Sharing tool configs
+### Guardrail: nothing younger than 7 days
 
-TypeScript, ESLint, Prettier, and Vite configuration for `apps/frontend` and the three bots all come from one shared package, `packages/config` (`@angora/config`) — see its own [README](packages/config/README.md) for what's in it and why the ESLint configs deliberately stay plain `.mjs` instead of `.ts`.
+A compromised maintainer account is usually caught within days, so nothing published in the last week can be installed.
 
-### Guardrail: no package younger than 7 days
-
-Newly-published versions are a common supply-chain attack vector (a maintainer's account gets compromised, a malicious version goes out, and it's often caught and pulled within days). This repo blocks installing anything published in the last week:
-
-- **Frontend + bots (pnpm)**: `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (7 days, in minutes) with `minimumReleaseAgeStrict: true`. This is enforced natively by pnpm on every `pnpm install`/`pnpm add` — for direct **and** transitive dependencies — and it re-verifies the committed `pnpm-lock.yaml` on every install, not just when adding something new. A too-new resolution makes the install fail outright rather than silently substituting an older version.
-- **Backend (Maven)**: Maven has no built-in equivalent, so `scripts/check-dependency-age.ts` audits `apps/backend/pom.xml` (and, as a second line of defense, the npm side too) against each artifact's actual publish date on Maven Central / the npm registry:
+- **pnpm**: `minimumReleaseAge: 10080` with `minimumReleaseAgeStrict: true` in `pnpm-workspace.yaml`. Enforced natively on every install, for direct and transitive dependencies, and re-verified against the committed lockfile. A too-new resolution fails the install.
+- **Maven**: no native equivalent, so `scripts/check-dependency-age.ts` audits `pom.xml` (and the npm side too) against real publish dates. Run it before merging a dependency bump; CI runs it as well.
 
   ```bash
-  node scripts/check-dependency-age.ts
-  # or
-  pnpm run check:dep-age
+  node scripts/check-dependency-age.ts   # or: pnpm run check:dep-age
   ```
-
-  This is a verification gate you run before merging a dependency bump (it also runs in CI) — unlike the pnpm guardrail, it can't stop a `mvn install` from happening automatically, since Maven doesn't expose a hook for that.
 
 ## CI, Git Hooks & Deployment
 
-### Git hooks (Husky)
+`pnpm install` wires up one Husky hook via the root `prepare` script: **`pre-commit`**, which runs `pnpm run lint` and `pnpm run format:check`. It's check-only — fix the violation and commit again.
 
-`pnpm install` automatically wires up two hooks via the root `prepare` script:
+**`main` is protected server-side by GitHub**, not by a local hook: PRs need 1 approval (stale reviews dismissed on new commits), the `backend`, `frontend-bots` and `guardrails` checks must pass, conversations must be resolved, admins are included, and force-push/deletion are blocked. The old local `pre-push` stand-in was removed once this went live.
 
-| Hook | What it does |
-| ------ | --------------- |
-| `pre-commit` | Runs `pnpm run lint` and `pnpm run format:check`. Check-only — it blocks the commit on a violation rather than auto-fixing; run `pnpm run format` (or fix the lint error) and commit again. |
-
-**`main` is protected server-side by GitHub branch protection**, not just a local hook: pull requests require 1 approval (stale reviews dismissed on new commits), the `backend`, `frontend-bots`, and `guardrails` CI checks must pass, conversations must be resolved, admins are included, and force-pushes/deletion are blocked. There used to be a local `pre-push` hook standing in for this before the repo went public — it's been removed now that the real thing is in place.
-
-### CI (`.github/workflows/ci.yml`)
-
-Runs on every pull request targeting `main` and every push to `main`:
+`.github/workflows/ci.yml` runs on every PR to `main` and every push to `main`:
 
 | Job | What it runs |
 | ----- | -------------- |
 | `backend` | `mvn test` against `apps/backend` |
-| `frontend-bots` | `pnpm run lint`, `pnpm run format:check`, `pnpm run typecheck` (+ the frontend's extra `tsconfig.node.json` check), `pnpm run test`, `pnpm -r run build` |
+| `frontend-bots` | `lint`, `format:check`, `typecheck` (plus the frontend's `tsconfig.node.json` pass), `test`, `pnpm -r run build` |
 | `guardrails` | `node scripts/check-dependency-age.ts` |
 
-The badge at the top of this README reflects the latest run against `main`. All third-party GitHub Actions are pinned to a commit SHA rather than a floating version tag.
+Third-party Actions are pinned to commit SHAs, not tags.
 
-### Deploy (`.github/workflows/deploy.yml`)
-
-A placeholder, currently **manual-trigger only** (`workflow_dispatch` — run it from the Actions tab or `gh workflow run deploy.yml`). It builds nothing real yet; its steps are TODO stubs for pushing images to a registry and deploying to a real target. It will not run automatically until someone fills those in and changes its trigger to `push: branches: [main]`.
+`.github/workflows/deploy.yml` is a **manual-trigger-only** placeholder with TODO steps. It deploys nothing until someone fills them in.
 
 ## Docker Compose Commands
 
-Using Podman instead? See [Container Runtime](#container-runtime) — every command below works unchanged with `podman-compose`/`podman` in place of `docker-compose`/`docker`.
+Works unchanged with `podman-compose`/`podman` — see [Container Runtime](#container-runtime).
 
 ```bash
-# Start all services
-docker-compose up --build
+docker-compose up --build              # everything
+docker-compose up backend              # one service
+docker-compose logs -f [service]       # follow logs
+docker-compose build backend           # rebuild one service
+docker-compose down                    # stop
+docker-compose down -v                 # stop and drop the database volume
+docker ps                              # running containers
 
-# Start specific service
-docker-compose up backend
-docker-compose up frontend
-docker-compose up slack-bot
-docker-compose up discord-bot
-docker-compose up email-bot
-
-# View logs
-docker-compose logs -f
-docker-compose logs backend
-docker-compose logs frontend
-
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (including database data)
-docker-compose down -v
-
-# View running containers
-docker ps
-
-# View container logs
-docker logs angora-backend
-
-# Build specific service
-docker-compose build backend
-docker-compose build frontend
-
-# Pull latest images (if not using build)
-docker-compose pull
-
-# Run with production values instead of the local .env / built-in defaults
 docker-compose --env-file .env.production up -d --build
 ```
 
@@ -299,211 +213,155 @@ docker-compose --env-file .env.production up -d --build
 
 ### Docker Compose (`.env`, `.env.production`)
 
-`docker-compose.yml` reads its configurable values (database credentials, host ports) from environment variables, each with a default baked in — so `docker-compose up --build` works with zero setup, with or without a `.env` file present:
+`docker-compose.yml` reads its configurable values from environment variables, each with a default, so `docker-compose up --build` works with no `.env` present:
 
 | Variable | Default | Used by |
 | ---------- | --------- | --------- |
 | `POSTGRES_DB` | `angora` | `postgres`, and `backend`'s `DB_URL` |
 | `POSTGRES_USER` | `angora` | `postgres`, and `backend`'s `DB_USER` |
 | `POSTGRES_PASSWORD` | `angora` | `postgres`, and `backend`'s `DB_PASSWORD` |
-| `POSTGRES_PORT` | `5432` | Host port `postgres` publishes to |
-| `BACKEND_PORT` | `8080` | Host port `backend` publishes to |
-| `FRONTEND_PORT` | `3000` | Host port `frontend` publishes to |
-| `DISCORD_BOT_TOKEN` | `YOUR_DISCORD_BOT_TOKEN` | `discord-bot` token for connecting to Discord gateway (idles gracefully if unchanged) |
-| `DISCORD_CLIENT_ID` | `123456789012345678` | `discord-bot` application/client ID for command registration and OAuth invite URLs |
-| `SERVICE_TOKEN_DISCORD_BOT` | `dev-discord-bot-token` | Shared secret authenticating `discord-bot` → `backend` calls. Read by **both** services and must match; the backend stores its hash in `service_tokens` at startup |
-| `COOKIE_SECURE` | `false` | Marks the login session cookie `Secure`. Must be `true` wherever TLS terminates in front of the stack; `false` locally, since browsers never send a `Secure` cookie over plain HTTP |
-| `CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated exact origins allowed to send credentialed cross-origin requests. Empty is correct here — nginx serves the frontend on the same origin as the API, and `pnpm run dev:frontend` proxies `/api` to the backend, so that case is same-origin too. No default is baked in: a value grants that origin authenticated access wherever the variable isn't overridden |
+| `POSTGRES_PORT` | `5432` | Host port `postgres` publishes |
+| `BACKEND_PORT` | `8080` | Host port `backend` publishes |
+| `FRONTEND_PORT` | `3000` | Host port `frontend` publishes |
+| `DISCORD_BOT_TOKEN` | `YOUR_DISCORD_BOT_TOKEN` | `discord-bot` gateway token; idles gracefully if unchanged |
+| `DISCORD_CLIENT_ID` | `123456789012345678` | `discord-bot` client ID for command registration and invite URLs |
+| `SERVICE_TOKEN_DISCORD_BOT` | `dev-discord-bot-token` | Authenticates `discord-bot` → `backend`. Read by **both** and must match |
+| `COOKIE_SECURE` | `false` | Marks the session cookie `Secure`. Must be `true` behind TLS; `false` locally |
+| `CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated exact origins for credentialed cross-origin requests. Empty is correct here — every setup this repo ships is same-origin. No default is baked in, since a value grants that origin authenticated access |
+| `GIT_SHA` | `unknown` | Build arg, not a runtime var. Embedded in the frontend bundle for the sidebar version marker. `.git` isn't in the build context, so set it explicitly: `GIT_SHA=$(git rev-parse --short HEAD) docker-compose up --build frontend` |
 
-Authentication behavior (login, session cookies, password hashing, lockout, service tokens) is documented in [`apps/backend/README.md`](apps/backend/README.md#authentication), including how to seed the first user — there is no signup or invite flow yet.
-| `GIT_SHA` | `unknown` | Build-time only (not a runtime env var) — passed as a Docker build arg for `frontend`, embedded into the app bundle and shown in the sidebar's version marker. `.git` isn't in the Docker build context, so this is the only way the containerized build knows its own commit; set it at build time, e.g. `GIT_SHA=$(git rev-parse --short HEAD) docker-compose up --build frontend` |
-
-- **Local development**: copy [`.env.example`](.env.example) to `.env` (`cp .env.example .env`) and edit it — docker-compose loads `.env` from the project root automatically. This step is optional; the defaults above already match `.env.example`.
-- **Production-like run**: copy [`.env.production.example`](.env.production.example) to `.env.production`, fill in real secrets (especially `POSTGRES_PASSWORD` and `SERVICE_TOKEN_DISCORD_BOT`, as neither placeholder is usable as-is, plus real `DISCORD_BOT_TOKEN`/`DISCORD_CLIENT_ID` values if enabling live Discord bot functionality), set `COOKIE_SECURE=true`, and pass it explicitly — docker-compose only auto-loads a file literally named `.env`, so this one is opt-in on purpose:
+- **Local**: `cp .env.example .env` and edit. Optional — the defaults already match.
+- **Production**: copy [`.env.production.example`](.env.production.example), fill in real secrets, set `COOKIE_SECURE=true`, and pass it explicitly. Compose only auto-loads `.env`, so this is opt-in on purpose:
   ```bash
   docker-compose --env-file .env.production up -d --build
   ```
-- Both `.env` and `.env.production` are gitignored (only the `.example` templates are tracked) — never commit real credentials.
+- Both are gitignored; only the `.example` templates are tracked.
 
-Backend-specific variables (`DB_URL`, `DB_USER`, `DB_PASSWORD`) are documented in [`apps/backend/README.md`](apps/backend/README.md#environment-variables).
+Authentication behavior, including how to seed the first user, is in [`apps/backend/README.md`](apps/backend/README.md#authentication). Backend-specific variables (`DB_URL`, `DB_USER`, `DB_PASSWORD`) are documented [there too](apps/backend/README.md#environment-variables).
 
-Every value above can instead be sourced from Infisical — see the next section.
+Every value above can instead come from Infisical — see below.
 
 ## Secret Management (Infisical)
 
-Keeping production secrets in a `.env.production` file works, but it means the real database password and service tokens live in plaintext on whatever host runs the stack. Angora can read them from [Infisical](https://infisical.com) instead, behind a single flag.
+Secrets in `.env.production` sit in plaintext on whatever host runs the stack. Angora can read them from [Infisical](https://infisical.com) instead, behind one flag.
 
-**It is off by default.** With `INFISICAL_ENABLED` unset or `false`, every service reads plain environment variables as documented above, and nothing touches the network.
+**Off by default.** With `INFISICAL_ENABLED` unset or `false`, every service reads plain environment variables as documented above and nothing touches the network.
 
 | Variable | Default | Notes |
 | ---------- | --------- | ------- |
-| `INFISICAL_ENABLED` | `false` | The only off switch. Any value other than `true` means off |
-| `INFISICAL_DOMAIN` | `https://eu.infisical.com` | Infisical Cloud (EU). Use `https://app.infisical.com` for US Cloud, or your own origin for a self-hosted instance |
+| `INFISICAL_ENABLED` | `false` | The only off switch. Anything other than `true` means off |
+| `INFISICAL_DOMAIN` | `https://eu.infisical.com` | EU Cloud. Use `https://app.infisical.com` for US, or your own origin |
 | `INFISICAL_PROJECT_ID` | _(empty)_ | Required when enabled |
-| `INFISICAL_ENV` | `dev` | Environment slug to read |
+| `INFISICAL_ENV` | `dev` | Environment slug, not display name — the UI shows "Development" for `dev` |
 | `INFISICAL_SECRET_PATH` | `/` | Folder to read |
-| `INFISICAL_CLIENT_ID` / `INFISICAL_CLIENT_SECRET` | _(empty)_ | Machine identity credentials (Universal Auth) |
-| `INFISICAL_TOKEN` | _(empty)_ | Pre-issued access token. Set this *instead of* the client pair to skip the login call |
+| `INFISICAL_CLIENT_ID` / `INFISICAL_CLIENT_SECRET` | _(empty)_ | Machine identity (Universal Auth). The one pair that can't live in Infisical; scope it to this project |
+| `INFISICAL_TOKEN` | _(empty)_ | Pre-issued token, used *instead of* the client pair to skip the login call |
 
-### How it resolves
+Each service fetches once at startup and prefers Infisical over the environment, which stays the fallback. Rotating a secret needs a restart; there is no polling.
 
-Each service fetches its secrets once at startup and prefers them over the environment, which stays the fallback for anything the project doesn't define. Rotating a secret requires a restart; there is no polling.
+If Infisical is enabled but unreachable, services refuse to start. A silent fallback would boot a production deployment on the `angora`/`angora` dev credentials and report healthy.
 
-If Infisical is enabled but unreachable or misconfigured, services refuse to start. A silent fallback to the environment would let a production deployment boot on the `angora`/`angora` development credentials and report healthy.
+One stack reads one environment: the same slug goes to every service. Run dev and prod as two stacks, not one straddling both.
 
-### Environments
-
-An Infisical project holds several environments (`dev`, `staging`, `prod`, plus any you add). `INFISICAL_ENV` picks which one this deployment reads, by slug — it defaults to `dev`, and `.env.production.example` ships with `prod`.
-
-One stack reads one environment. The same slug goes to every service, so the backend and the bots always see a consistent set. To run dev and prod side by side, use two stacks with different `INFISICAL_ENV` values rather than one stack straddling both.
-
-If you keep secrets in folders, `INFISICAL_SECRET_PATH` narrows further within the chosen environment. The default, `/`, reads the root.
-
-Note that the slug is what matters, not the display name — Infisical's UI shows "Development" for the `dev` slug.
-
-### The frontend has no secrets
-
-`apps/frontend` is deliberately not wired into any of this. Vite compiles it to static assets served by nginx, so anything given to it at build time ships to every visitor in the bundle. A secret there wouldn't be secret.
-
-It also doesn't need one. It calls the API on the same origin via a relative `/api` path, authenticated by the session cookie the browser already holds. Its only build-time value is `GIT_SHA`, a commit hash.
+`apps/frontend` is excluded on purpose. Vite compiles it to static assets, so anything given at build time ships to every visitor — and it needs no credentials anyway, calling the API same-origin with the session cookie.
 
 ### The one exception: Postgres
 
-`postgres` runs a third-party image, and it only reads `POSTGRES_PASSWORD` at `initdb` — on the very first start against an empty volume, before any of our code runs. No in-process lookup can reach it.
-
-To source the whole compose file from Infisical, Postgres included, generate an env file on the host first:
+`postgres` is a third-party image that reads `POSTGRES_PASSWORD` at `initdb` only, before any of our code runs. To cover it, feed compose's own interpolation from the host:
 
 ```bash
 node scripts/infisical-env.ts          # writes .env.infisical (gitignored)
 docker-compose --env-file .env.infisical up -d --build
 ```
 
-That feeds compose's own `${VAR}` interpolation, so every service — including `postgres` — gets its values from Infisical. The in-process lookups still run on top of it.
+Two things about this fail quietly:
 
-### Self-hosted vs. Cloud
+**`--env-file` replaces `.env` rather than merging with it.** Any variable in `.env` but not in Infisical falls back to the `:-default` in `docker-compose.yml` — `angora` for `POSTGRES_PASSWORD`, `dev-discord-bot-token` for the service token, `false` for `COOKIE_SECURE`. The Infisical project must hold **every** variable listed in [Environment Variables](#environment-variables), not just the sensitive ones.
 
-Both work. Point `INFISICAL_DOMAIN` at your own instance to self-host, or leave the default for Infisical Cloud's EU region.
-
-The two Cloud regions are separate deployments holding separate data: a project created in one is not visible from the other. A US-region project needs `INFISICAL_DOMAIN=https://app.infisical.com` set explicitly.
-
-The machine identity credentials are the one pair that can't live in Infisical itself. Treat them as the root credential, and scope the identity to just the project and environment it needs.
+**A new `POSTGRES_PASSWORD` doesn't reach an existing database.** Postgres keeps the old one while the backend picks up the new one, then fails to connect. Rotate with `ALTER USER`, or `docker-compose down -v` to recreate the volume and lose the data.
 
 ## Project Structure
 
 ```
 angora/
-├── .agents/
-│   └── skills/
-│       └── pr-review/              # Vendor-neutral PR review procedure; .claude/skills/pr-review symlinks here
-│
-├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml                  # backend/frontend-bots/guardrails, on PR + push to main
-│   │   └── deploy.yml              # Manual-trigger-only placeholder, see Limitations
-│   ├── ISSUE_TEMPLATE/
-│   └── pull_request_template.md
-│
-├── .husky/
-│   └── pre-commit                  # lint + format:check, check-only
+├── .agents/skills/pr-review/   # PR review procedure; .claude/skills/pr-review symlinks here
+├── .github/workflows/          # ci.yml (PR + push to main), deploy.yml (manual stub)
+├── .husky/pre-commit           # lint + format:check, check-only
 │
 ├── apps/
-│   ├── backend/                    # KTor + Exposed ORM — see apps/backend/README.md, AGENTS.md
-│   ├── frontend/                   # React + Vite — see apps/frontend/README.md, AGENTS.md
-│   └── bots/
-│       ├── slack/                  # see apps/bots/slack/README.md
-│       ├── discord/                # see apps/bots/discord/README.md
-│       ├── email/                  # see apps/bots/email/README.md
-│       └── AGENTS.md               # Shared agent rules for all three bots
+│   ├── backend/                # KTor + Exposed ORM
+│   ├── frontend/               # React + Vite
+│   └── bots/{slack,discord,email}/
 │
 ├── packages/
-│   ├── config/                     # @angora/config — see packages/config/README.md, AGENTS.md
-│   └── secrets/                    # @angora/secrets — see packages/secrets/README.md, AGENTS.md
+│   ├── config/                 # @angora/config — shared TS/ESLint/Prettier/Vite config
+│   └── secrets/                # @angora/secrets — runtime secret loading
 │
 ├── scripts/
-│   ├── check-dependency-age.ts    # Maven + npm supply-chain age guardrail
-│   └── infisical-env.ts           # Writes .env.infisical for `docker-compose --env-file` (covers postgres)
-├── docker-compose.yml              # frontend/bots build with context: . (repo root); backend keeps context: ./apps/backend
-├── package.json                    # Root scripts (lint/typecheck/test/format/prepare), pinned packageManager, husky + prettier devDependencies
-├── prettier.config.ts              # Re-exports @angora/config/prettier/index.ts
-├── .prettierignore
-├── .dockerignore                   # Used by the four root-context builds
-├── .env.example                    # Copy to `.env` for local overrides (optional — see Environment Variables)
-├── .env.production.example         # Copy to `.env.production`, fill in real secrets, use with --env-file
-├── pnpm-workspace.yaml             # pnpm workspace config, catalog, age policy
-├── pnpm-lock.yaml                  # Locked versions for the whole JS workspace
-├── .gitignore
-├── AGENTS.md                       # Repo-wide agent rules; see nested AGENTS.md files above for module-specific ones
-└── README.md
+│   ├── check-dependency-age.ts # Maven + npm supply-chain age guardrail
+│   └── infisical-env.ts        # Writes .env.infisical for --env-file (covers postgres)
+│
+├── docker-compose.yml          # frontend/bots build from repo root; backend from ./apps/backend
+├── pnpm-workspace.yaml         # Workspace, catalog, age policy
+├── .env.example                # Copy to .env (optional)
+├── .env.production.example     # Copy to .env.production, use with --env-file
+└── AGENTS.md                   # Repo-wide agent rules; each module has its own
 ```
+
+Each module directory has its own `README.md` and `AGENTS.md` — see [Modules](#modules).
 
 ## Health Checks
 
-Every service in `docker-compose.yml` has a healthcheck, so `docker compose ps` reports `healthy`/`unhealthy` for all six, and `depends_on: condition: service_healthy` gates startup order on it (frontend and all three bots wait for `backend` to be healthy before starting).
+All six services have healthchecks, so `docker compose ps` reports `healthy`/`unhealthy`, and `depends_on: condition: service_healthy` gates startup order — the frontend and bots wait for `backend`.
 
-| Service | Health Check | Endpoint |
-| --------- | --------------- | ---------- |
-| PostgreSQL | `pg_isready -U $POSTGRES_USER -d $POSTGRES_DB` | N/A |
-| Backend | `curl -f http://localhost:8080/api/health` | `/api/health` |
-| Frontend | `wget --spider -q http://localhost:3000/` | `/` (nginx-served SPA index) |
-| Slack bot | `wget --spider -q http://localhost:3002/health` | `/health` (internal, not published to the host) |
-| Discord bot | `wget --spider -q http://localhost:3001/health` | `/health` (internal; same server as `POST /leave/:guildId`, see [`apps/bots/discord/README.md`](apps/bots/discord/README.md)) |
-| Email bot | `wget --spider -q http://localhost:3003/health` | `/health` (internal, not published to the host) |
+| Service | Health check |
+| --------- | -------------- |
+| PostgreSQL | `pg_isready -U $POSTGRES_USER -d $POSTGRES_DB` |
+| Backend | `curl -f http://localhost:8080/api/health` |
+| Frontend | `wget --spider -q http://localhost:3000/` |
+| Slack / Discord / Email bots | `wget --spider -q http://localhost:{3002,3001,3003}/health` |
 
-The three bots use `wget` (not `curl`, which isn't present on `node:24-alpine`) against a minimal `node:http` server that starts unconditionally — this is also what keeps their containers running as long-lived processes rather than exiting after their startup log line.
+The bots use `wget` because `node:24-alpine` has no `curl`. Their `/health` endpoint is a minimal `node:http` server that starts unconditionally — which is also what keeps the containers alive instead of exiting after the startup log line. The Discord bot's server also handles `POST /leave/:guildId` ([details](apps/bots/discord/README.md)).
 
 ## Database
 
-- **Engine**: PostgreSQL 18 (Alpine)
-- **Database / User / Password / Port**: `angora` / `angora` / `angora` / `5432` by default — override via `POSTGRES_DB`/`POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_PORT` in `.env` (see [Environment Variables](#environment-variables))
-- **Volume**: `angora-postgres-data`, mounted at `/var/lib/postgresql` (PostgreSQL 18+ images lay out data in a version-specific subdirectory there, not at `/var/lib/postgresql/data` as in older images)
-- **Network**: `angora-network` (custom Docker network)
-- **Schema**: managed by Flyway migrations, applied automatically on every backend startup — `companies`, `roles`, `users`, `accounts`, `contacts`, `discord_servers`, `sessions`, `user_identities`, `service_tokens`. See [`apps/backend/README.md`](apps/backend/README.md#database-schema) for the table-by-table breakdown and how to add a migration.
+- **Engine**: PostgreSQL 18 (Alpine), on the `angora-network` Docker network
+- **Defaults**: `angora` / `angora` / `angora` on `5432` — override via the `POSTGRES_*` variables (see [Environment Variables](#environment-variables))
+- **Volume**: `angora-postgres-data` at `/var/lib/postgresql`. PostgreSQL 18 images use a version-specific subdirectory there, *not* `/var/lib/postgresql/data` as older images did
+- **Schema**: Flyway migrations, applied on every backend startup — `companies`, `roles`, `users`, `accounts`, `contacts`, `discord_servers`, `sessions`, `user_identities`, `service_tokens`
 
-Connection details from the backend's own code live in [`apps/backend/README.md`](apps/backend/README.md#database-access).
+Table-by-table detail, how to add a migration, and connection handling: [`apps/backend/README.md`](apps/backend/README.md#database-schema).
 
 ## Limitations
 
-Things that look done but have known gaps worth knowing about before relying on them:
+Known gaps behind things that otherwise look finished:
 
-- **Authentication has no user interface.** The backend authenticates properly — login, session cookies, Argon2id hashing, lockout, RBAC principals — but there is no login page, so the only way in is `curl`. There is also no signup, invitation, password reset, or email verification, which means the first user has to be inserted into the database by hand ([how](apps/backend/README.md#seeding-the-first-user)). Role gating is scaffolded but not yet applied route-by-route: any authenticated user currently reaches every CRM route.
-- **Test coverage is uneven.** The backend has real integration tests running against a Testcontainers-provisioned Postgres (see [`apps/backend/README.md#testing`](apps/backend/README.md#testing)) covering the Discord repository and the whole auth layer — repositories, password hashing, and login behavior — but accounts, contacts, and the route layer have none, and there are no HTTP-level tests. The frontend and each bot still have exactly one placeholder Vitest smoke test each, testing no actual behavior. A green CI run means "compiles, lints, formats, and the tested slices still work," not "is correct."
-- **Deploy is not wired up.** `.github/workflows/deploy.yml` is a manual-trigger-only stub with TODO steps — merging to `main` does not deploy anything anywhere yet.
+- **Authentication has no UI.** The backend side is real — login, session cookies, Argon2id, lockout, RBAC principals — but there's no login page, signup, invite, password reset, or email verification. The first user is inserted by hand ([how](apps/backend/README.md#seeding-the-first-user)). Role gating is scaffolded but not applied per route, so any authenticated user reaches every CRM route.
+- **Test coverage is uneven.** The backend has Testcontainers integration tests over the Discord repository and the auth layer ([details](apps/backend/README.md#testing)); accounts, contacts and the route layer have none. The frontend and each bot have a single placeholder test. Green CI means "compiles, lints, and the tested slices work" — not "is correct".
+- **Deploy is not wired up.** `.github/workflows/deploy.yml` is a manual-only stub with TODO steps.
 
 ## Agent Configuration
 
-For AI agent assistance with this project, see [AGENTS.md](./AGENTS.md) for repo-wide instructions and constraints. Each module also has its own `AGENTS.md` with rules scoped to that directory: [`apps/backend`](apps/backend/AGENTS.md), [`apps/frontend`](apps/frontend/AGENTS.md), [`apps/bots`](apps/bots/AGENTS.md), [`packages/config`](packages/config/AGENTS.md), [`packages/secrets`](packages/secrets/AGENTS.md).
-
-Task-specific procedures live in `.agents/skills/`, kept outside any single vendor's directory so every agent can read them: [`pr-review`](.agents/skills/pr-review/SKILL.md) is a read-only pull-request review protocol (`.claude/skills/pr-review` symlinks to it so Claude Code loads it as a skill).
+[AGENTS.md](./AGENTS.md) holds the repo-wide rules; each module directory has its own scoped one. Task procedures live in `.agents/skills/` — outside any vendor directory so every agent can read them. [`pr-review`](.agents/skills/pr-review/SKILL.md) is a read-only review protocol; `.claude/skills/pr-review` symlinks to it.
 
 ## Troubleshooting
 
-### Common Issues
+**Build fails** — check the runtime is up (`docker --version`) and you have disk (`docker system df`); then `docker-compose build --no-cache`.
 
-**Docker/Podman Build Fails**:
+**Port already in use** — find it with `lsof -i :3000`, then either free it or set `FRONTEND_PORT`/`BACKEND_PORT`/`POSTGRES_PORT` in `.env` rather than editing `docker-compose.yml`.
 
-- Ensure the runtime is working: `docker --version` (or `podman --version`)
-- Check disk space: `docker system df` (or `podman system df`)
-- Clean build cache: `docker-compose build --no-cache` (or `podman-compose build --no-cache`)
-
-**Port Already in Use**:
-
-- List processes: `lsof -i :3000` or `lsof -i :8080`
-- Kill the conflicting process, or set `FRONTEND_PORT`/`BACKEND_PORT`/`POSTGRES_PORT` in `.env` (see [Environment Variables](#environment-variables)) instead of editing docker-compose.yml
-
-Service-specific issues (backend won't start, frontend can't reach the API, etc.) are covered in each module's own README/Troubleshooting section — see [Modules](#modules).
+Service-specific problems are covered in each module's own README — see [Modules](#modules).
 
 ## Contributing
 
-Every change starts from an issue. Issues are auto-prefixed `ANGORA-<number>` on open (see `.github/workflows/issue-title-prefix.yml`), and branch names must follow the same prefix — a repository ruleset rejects any new branch that isn't named `main` or `ANGORA-<number>-...` (there's no way to have GitHub generate this name for you; type it by hand, including when using the "Create a branch" button on an issue).
+Every change starts from an issue. Issues are auto-prefixed `ANGORA-<number>` on open, and a repository ruleset rejects any branch not named `main` or `ANGORA-<number>-...`. GitHub's "Create a branch" button won't generate that name — type it yourself.
 
-1. Create a feature branch named `ANGORA-<issue-number>-short-description` (e.g. `git checkout -b ANGORA-42-fix-login-bug`)
-2. Make your changes
-3. Test with `docker-compose up --build` (and/or the per-service `lint`/`typecheck`/`test` commands — see the relevant module README)
-4. Commit your changes (`git commit -m 'Add some feature'`) — the pre-commit hook runs lint + format:check automatically
-5. Push the branch (`git push origin feature/your-feature`) — pushing to `main` directly is blocked locally, see [CI, Git Hooks & Deployment](#ci-git-hooks--deployment)
-6. Open a Pull Request — CI runs automatically and reports status on the PR (not yet a hard merge gate, see [Limitations](#limitations))
+1. Branch: `git checkout -b ANGORA-42-fix-login-bug`
+2. Make the change, and test it — `docker-compose up --build`, plus the module's own `lint`/`typecheck`/`test`
+3. Commit; the pre-commit hook runs lint and format:check
+4. Push the branch and open a PR. CI runs automatically, and its three checks are a hard merge gate along with one human approval
 
-Reviewers (human or AI) can follow [`.agents/skills/pr-review/SKILL.md`](.agents/skills/pr-review/SKILL.md), a read-only review procedure that checks the things CI can't: whether the change matches its linked issue, whether the new tests would actually catch a regression, and whether any new dependency's license is compatible (see [AGENTS.md](AGENTS.md#licensing) — nothing in CI checks that). It produces an advisory report only; approving a PR stays a human action.
+Reviewers, human or AI, can follow [`.agents/skills/pr-review/SKILL.md`](.agents/skills/pr-review/SKILL.md) — a read-only procedure covering what CI can't: whether the change matches its linked issue, whether new tests would catch a regression, and whether a new dependency's license is compatible ([AGENTS.md](AGENTS.md#licensing)). It's advisory; approving stays a human action.
 
 ## License
 

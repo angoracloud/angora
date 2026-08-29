@@ -1,72 +1,58 @@
 # Discord bot
 
-Discord integration bot (`angora-discord-bot`) — Node.js service that talks to the backend.
+Node.js 24 + TypeScript 7 service (`angora-discord-bot`) that talks to the backend. Configs extend [`@angora/config`](../../../packages/config/README.md).
 
-- **Runtime**: Node.js 24+, TypeScript 7
-- **Config**: TypeScript/ESLint configs are extended from [`@angora/config`](../../../packages/config/README.md), the shared config package
-
-See the [root README](../../../README.md) for the one-command `docker-compose up --build` quickstart and repo-wide concerns (environment variables, CI, dependency guardrails). See the [Slack bot](../slack/README.md) and [Email bot](../email/README.md) READMEs — same layout, same commands.
+See the [root README](../../../README.md) for the compose quickstart and repo-wide concerns. The [Slack](../slack/README.md) and [Email](../email/README.md) bots share this layout and these commands.
 
 ## Running
 
-**Via Docker** (from the repo root): `docker-compose up --build discord-bot`
-
-**Locally**:
-
 ```bash
-cd apps/bots/discord
-pnpm run build
-pnpm run start
+docker-compose up --build discord-bot          # from the repo root
+
+cd apps/bots/discord && pnpm run build && pnpm run start
 ```
 
 ## Commands
 
-| Command             | What it does                                                                                     |
-| --------------------- | ---------------------------------------------------------------------------------------------------- |
-| `pnpm run lint`      | ESLint                                                                                                |
-| `pnpm run build`     | `tsc` — compiles `src/` to `dist/` (also the typecheck step; excludes `*.test.ts` from the output)  |
-| `pnpm run test`      | Vitest — currently just a placeholder smoke test, see the root README's [Limitations](../../../README.md#limitations) |
-| `pnpm run start`     | `node dist/index.js`                                                                                 |
+Run from `apps/bots/discord/`, or as `pnpm --filter angora-discord-bot run <script>`.
 
-Run these from `apps/bots/discord/`, or from the repo root as `pnpm --filter angora-discord-bot run <script>`.
+| Command | What it does |
+| ------- | ------------ |
+| `pnpm run lint` | ESLint |
+| `pnpm run build` | `tsc` — `src/` to `dist/`, also the typecheck step |
+| `pnpm run test` | Vitest — a placeholder, see [Limitations](../../../README.md#limitations) |
+| `pnpm run start` | `node dist/index.js` |
 
-## Architecture & Structure
+## Structure
 
 ```
 src/
-├── client/              # Discord.js client initialization & gateway event handlers
-│   └── discordClient.ts # Ready, guildCreate, guildDelete, interactionCreate listeners
-├── server/              # Internal HTTP server for backend-to-bot communication
-│   └── internalHttpServer.ts # Listens on :3001 for GET /health and POST /leave/:guildId
-├── services/            # Bot business logic & backend HTTP client
-│   ├── backendService.ts # Sends POST /api/discord/bot/sync to backend
-│   └── commandService.ts # Handles slash commands (/ping)
-├── constants.ts         # Centralized ports, URLs, intervals, and endpoints
-├── types/               # TypeScript models & sync payloads
-├── index.ts             # Entrypoint bootstrapping the Discord client & HTTP server
-└── placeholder.test.ts  # Vitest test suite
+├── client/discordClient.ts       # Gateway listeners: ready, guildCreate, guildDelete, interactionCreate
+├── server/internalHttpServer.ts  # :3001 — GET /health, POST /leave/:guildId
+├── services/
+│   ├── backendService.ts         # POST /api/discord/bot/sync
+│   └── commandService.ts         # Slash commands (/ping)
+├── constants.ts                  # Ports, URLs, intervals, endpoints
+├── types/
+└── index.ts                      # Bootstraps the client and HTTP server
 ```
 
-## Lifecycle & Integration
+## Lifecycle
 
-1. **Startup**: the Discord client and the internal HTTP server (`GET /health`, `POST /leave/:guildId`) both start unconditionally, even without a real `DISCORD_BOT_TOKEN` — only the Discord gateway login is conditional on a real token, see [Notes](#notes) below.
-2. **OAuth Bot Invitation**: When invited to a new guild, `guildCreate` fires and automatically registers/syncs the server with the backend (`POST /api/discord/bot/sync`).
-3. **Periodic Sync**: Every 60 seconds, `syncAllGuilds` syncs member count and guild info with the backend.
-4. **CRM Disconnect**: When disconnected via the Angora UI, the backend sends a request to the bot's internal HTTP server (`POST /leave/:guildId`), prompting the bot to leave the Discord guild.
-5. **Discord-Side Removal**: If kicked or removed directly within Discord, `guildDelete` notifies the backend to update `botJoined: false`.
+1. **Startup** — the Discord client and the internal HTTP server both start unconditionally, even without a real token. Only the gateway login is conditional (see Notes).
+2. **Invited to a guild** — `guildCreate` syncs it to the backend.
+3. **Every 60s** — `syncAllGuilds` refreshes member counts and guild info.
+4. **Disconnected from the Angora UI** — the backend calls `POST /leave/:guildId`, and the bot leaves.
+5. **Kicked in Discord** — `guildDelete` tells the backend `botJoined: false`.
 
 ## Authenticating to the backend
 
-`POST /api/discord/bot/sync` requires a service token — reaching the backend over the Docker network is no longer enough on its own. The bot sends `Authorization: Bearer ${SERVICE_TOKEN_DISCORD_BOT}`, and the backend registers the hash of that same value into its `service_tokens` table at startup, so **both services must be given the identical value**. `docker-compose.yml` wires one variable into both; see the root README's [Environment Variables](../../../README.md#environment-variables).
+`POST /api/discord/bot/sync` requires a service token; being on the Docker network isn't enough. The bot sends `Authorization: Bearer ${SERVICE_TOKEN_DISCORD_BOT}` and the backend registers that value's hash at startup, so **both must see the identical value**. `docker-compose.yml` wires one variable into both. If they disagree, syncing fails with `401` and the bot logs a hint naming the variable; nothing else about the bot is affected.
 
-That token, along with `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID` and `BACKEND_URL`, is resolved at startup through [`@angora/secrets`](../../../packages/secrets/README.md) instead of being read from `process.env` at import time. That is what lets Infisical supply them. With `INFISICAL_ENABLED` off, the values come straight from `process.env`.
-
-`configureBackendService()` has to run before any sync; `src/index.ts` calls it immediately after `loadSecrets()`. Until then `syncGuildWithBackend()` logs and returns instead of syncing without the token, so a request arriving mid-startup doesn't produce a `401` that looks like a token mismatch.
-
-If they disagree, syncing fails with `401` and the bot logs a hint naming the variable. Nothing else about the bot is affected — the Discord gateway connection, the internal HTTP server, and the healthcheck are all independent of this.
+That token, plus `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID` and `BACKEND_URL`, is resolved at startup via [`@angora/secrets`](../../../packages/secrets/README.md) rather than read from `process.env` at import time, which is what lets Infisical supply them. `configureBackendService()` must run before any sync — `index.ts` calls it right after `loadSecrets()`. Until it does, `syncGuildWithBackend()` logs and returns instead of syncing unauthenticated.
 
 ## Notes
 
 - `package.json` declares `"type": "module"` — don't remove it.
-- Not running / not doing anything visible: check `docker-compose logs discord-bot`.
-- **Without a real `DISCORD_BOT_TOKEN`** (the default), the bot stays in a passive state — no Discord gateway connection, no guilds in cache — but the internal HTTP server on `:3001` still starts, so `GET /health` still returns `200` (this is what `docker-compose.yml`'s healthcheck relies on) and `POST /leave/:guildId` is technically reachable but a no-op, since there's no logged-in client and thus no guild ever in cache.
+- Nothing visible happening? `docker-compose logs discord-bot`.
+- **Without a real `DISCORD_BOT_TOKEN`** (the default) the bot stays passive: no gateway connection and no guilds cached. The `:3001` server still starts, so the healthcheck's `GET /health` returns `200`, and `POST /leave/:guildId` is reachable but a no-op with no guild in cache.
