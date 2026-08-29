@@ -18,8 +18,11 @@ export const INFISICAL_CONFIG = {
   /** Pre-issued access token. When set, the login call is skipped. */
   TOKEN_ENV: 'INFISICAL_TOKEN',
 
-  /** Infisical Cloud (US). Self-hosted installs override this. */
-  DEFAULT_DOMAIN: 'https://app.infisical.com',
+  /**
+   * Infisical Cloud (EU). US Cloud is `https://app.infisical.com`; self-hosted
+   * installs override this.
+   */
+  DEFAULT_DOMAIN: 'https://eu.infisical.com',
   DEFAULT_ENVIRONMENT: 'dev',
   DEFAULT_SECRET_PATH: '/',
 

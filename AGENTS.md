@@ -51,7 +51,7 @@ See [README.md](README.md) for the full quickstart, service list, and project st
 - **`.dockerignore`** (repo root): Used by the four root-context builds above; `apps/backend/.dockerignore` is separate and still used by backend's own context
 - **`.env.example`** / **`.env.production.example`** (repo root): Templates for `.env`/`.env.production`, which are gitignored. Keep these in sync with whatever variables `docker-compose.yml` actually reads — if you add a new `${VAR:-default}` to docker-compose.yml, add the variable (with its default) to `.env.example` too, and to `.env.production.example` if it's something a real deployment should set explicitly (e.g. a password).
 - **`scripts/infisical-env.ts`**: Resolves secrets from Infisical on the *host* and writes an env file for `docker-compose --env-file`. Exists because `postgres` is a third-party image whose `POSTGRES_PASSWORD` is only read at initdb — no in-process lookup can reach it, so compose's own interpolation has to be fed instead. Zero dependencies, run directly with `node`. It duplicates the two REST calls in `packages/secrets/src/infisical.ts` on purpose (Node doesn't map a `.js` specifier onto a `.ts` file, so it can't import them) — keep the two in sync.
-- **`scripts/check-dependency-age.ts`**: Maven + npm dependency-age audit; keep it in sync if `pom.xml`'s structure or the catalog format changes. It reads every `package.json` in the workspace (root, `packages/config`, `apps/frontend`, each bot) — add new manifests to its `manifests` list if you add a new workspace package. Runs directly via `node scripts/check-dependency-age.ts` — Node 24 executes `.ts` natively, no build step or `ts-node` needed.
+- **`scripts/check-dependency-age.ts`**: Maven + npm dependency-age audit; keep it in sync if `pom.xml`'s structure or the catalog format changes. It reads every `package.json` in the workspace (root, `packages/config`, `packages/secrets`, `apps/frontend`, each bot) — add new manifests to its `manifests` list if you add a new workspace package. Runs directly via `node scripts/check-dependency-age.ts` — Node 24 executes `.ts` natively, no build step or `ts-node` needed.
 - **`.gitignore`**: Standard ignore patterns. Do not add a bare `Dockerfile` entry — that previously matched every file named `Dockerfile` in the repo and silently kept all five of them out of git history. The `.env` block uses `.env` / `.env.*` with `!.env.example` / `!.env.*.example` negations — if you add a new env file pattern, make sure real files stay ignored and `.example` templates stay tracked.
 - **`README.md`** / module `README.md`s: Documentation only.
 
@@ -210,7 +210,7 @@ New API endpoints go in `apps/backend` — see [`apps/backend/AGENTS.md`](apps/b
 - Never commit secrets to the repository
 - Use environment variables for sensitive data
 - Database credentials are in docker-compose.yml (for development only)
-- For production, set `INFISICAL_ENABLED=true` and keep the real values in an Infisical project rather than in `.env.production` — see [Infisical](#infisical) above
+- For production, once an Infisical project is configured, set `INFISICAL_ENABLED=true` and keep the real values there rather than in `.env.production` — see [Infisical](#infisical) above. `.env.production.example` ships with the flag off so a copied file still boots; flipping it on is a deliberate step, not a default
 
 ## Style Guidelines
 

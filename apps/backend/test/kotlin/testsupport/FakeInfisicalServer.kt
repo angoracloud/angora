@@ -88,10 +88,3 @@ class FakeInfisicalServer(
         private const val ANY_PORT = 0
     }
 }
-
-/** In-memory stand-in for the process environment. */
-class MapSecretsProvider(
-    private val values: Map<String, String>
-) : cloud.angora.config.SecretsProvider {
-    override fun get(name: String): String? = values[name]
-}

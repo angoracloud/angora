@@ -18,14 +18,17 @@
 // `.ts` file, which is what that package's nodenext imports use. Keep them in
 // sync — the API shape is the same.
 
-import { writeFile } from 'node:fs/promises'
+import { chmod, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
 const DEFAULT_OUT = '.env.infisical'
-const DEFAULT_DOMAIN = 'https://app.infisical.com'
+// Infisical Cloud (EU). US Cloud is https://app.infisical.com; self-hosted
+// installs override this. Mirrors BackendConstants.Infisical.DEFAULT_DOMAIN and
+// INFISICAL_CONFIG.DEFAULT_DOMAIN in packages/secrets/src/constants.ts.
+const DEFAULT_DOMAIN = 'https://eu.infisical.com'
 const DEFAULT_ENVIRONMENT = 'dev'
 const DEFAULT_SECRET_PATH = '/'
 const LOGIN_PATH = '/api/v1/auth/universal-auth/login'
@@ -136,23 +139,36 @@ function render(secrets: Record<string, string>): string {
 const outArg = process.argv.find((a) => a.startsWith('--out='))
 const outPath = path.resolve(ROOT, outArg?.split('=')[1] ?? DEFAULT_OUT)
 
-try {
-  const secrets = await fetchSecrets()
-  await writeFile(outPath, render(secrets), { mode: 0o600 })
-
-  const relative = path.relative(ROOT, outPath)
-  console.log(
-    `[infisical-env] Wrote ${Object.keys(secrets).length} secret(s) to ${relative}`,
-  )
-  console.log(
-    `[infisical-env] Run: docker-compose --env-file ${relative} up -d --build`,
-  )
-} catch (err) {
-  // A network failure here would otherwise surface as a bare `TypeError: fetch
-  // failed` stack trace, which says nothing about what an operator should check.
+// A network failure here would otherwise surface as a bare `TypeError: fetch
+// failed` stack trace, which says nothing about what an operator should check.
+// Scoped to the fetch alone: a failure to write the file below is a different
+// problem and gets its own message, rather than being blamed on the network.
+const secrets = await fetchSecrets().catch((err: unknown) =>
   fail(
     `Could not reach Infisical at ${env('INFISICAL_DOMAIN') ?? DEFAULT_DOMAIN} — ${
       err instanceof Error ? err.message : String(err)
     }`,
+  ),
+)
+
+const contents = render(secrets)
+const relative = path.relative(ROOT, outPath)
+
+try {
+  // `mode` only applies when the file is created, so an existing file would keep
+  // whatever permissions it already had — chmod unconditionally afterwards. This
+  // file holds POSTGRES_PASSWORD and the service token in plaintext.
+  await writeFile(outPath, contents, { mode: 0o600 })
+  await chmod(outPath, 0o600)
+} catch (err) {
+  fail(
+    `Could not write ${relative} — ${err instanceof Error ? err.message : String(err)}`,
   )
 }
+
+console.log(
+  `[infisical-env] Wrote ${Object.keys(secrets).length} secret(s) to ${relative}`,
+)
+console.log(
+  `[infisical-env] Run: docker-compose --env-file ${relative} up -d --build`,
+)

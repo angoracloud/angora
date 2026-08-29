@@ -173,8 +173,8 @@ object BackendConstants {
         /** Pre-issued access token. When set, the Universal Auth login call is skipped. */
         const val TOKEN_ENV = "INFISICAL_TOKEN"
 
-        /** Infisical Cloud (US). Self-hosted installs override this. */
-        const val DEFAULT_DOMAIN = "https://app.infisical.com"
+        /** Infisical Cloud (EU). US Cloud is `https://app.infisical.com`; self-hosted installs override this. */
+        const val DEFAULT_DOMAIN = "https://eu.infisical.com"
         const val DEFAULT_ENVIRONMENT = "dev"
         const val DEFAULT_SECRET_PATH = "/"
 

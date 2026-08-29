@@ -20,7 +20,7 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - `src/auth/` — Principals (`UserPrincipal`, `ServicePrincipal`), the session cookie type (`AngoraSession`), and the `requireUser()` route helper. See Authentication conventions below before changing anything here
 - `src/dto/` — Request/response DTOs and models, including the shared `ApiError`/`ApiErrorEnvelope` in `src/dto/ErrorDto.kt`
 - `src/validation/` — Request validation rules, DTO validators, and Ktor `RequestValidation` plugin configuration
-- `src/config/` — `SecretsProvider` and its two implementations, the Infisical REST client, and the factory that picks between them. See Secrets sourcing below before changing anything here
+- `src/config/` — `SecretsProvider` and its two implementations, the Infisical REST client, and the `loadSecrets()` function that picks between them. See Secrets sourcing below before changing anything here
 - `src/constants/Constants.kt` — Backend constants (`BackendConstants`): route paths, defaults, error codes/messages, and validation limits/patterns/messages
 - `src/error/ApiException.kt` — the shared exception type StatusPages maps to the error envelope; throw this from routes/services for expected 4xx/5xx conditions, see `apps/backend/README.md`'s "Error Handling & Request Logging" section
 - `src/Application.kt` — KTor plugins, dependency wiring, and route mounting
@@ -68,7 +68,7 @@ Full behavior is documented in [`README.md`](README.md#authentication); these ar
 
 ## Secrets sourcing
 
-1. **Build the provider before anything that needs configuration.** `SecretsProviderFactory.create()` is the first line of `Application.module()` because `connectDatabase()` is itself configured from it. Don't reorder.
+1. **Build the provider before anything that needs configuration.** `loadSecrets()` is the first call in `Application.module()` because `connectDatabase()` is itself configured from it. Don't reorder.
 
 2. **Enabled-but-unreachable must stay fatal.** With `INFISICAL_ENABLED=true`, a failed login or fetch throws and aborts startup. Do not add a fallback to the environment on error: the backend would then boot on the `angora`/`angora` credentials in `docker-compose.yml` and look perfectly healthy. `INFISICAL_ENABLED=false` is the only off switch, and there deliberately isn't a second one.
 

@@ -14,6 +14,14 @@ let backendUrl: string = BOT_CONFIG.DEFAULT_BACKEND_URL
 let serviceToken: string | undefined
 
 /**
+ * Whether `configureBackendService` has run. The internal HTTP server starts
+ * listening before `loadSecrets()` resolves — deliberately, so the healthcheck
+ * has an endpoint during the Infisical fetch — which leaves a window where a
+ * request could reach this module before the token is bound.
+ */
+let configured = false
+
+/**
  * Binds this module to the secrets resolved at startup.
  *
  * These used to be module-level constants read straight from `process.env` at
@@ -26,6 +34,7 @@ export function configureBackendService(secrets: SecretsProvider): void {
     BOT_CONFIG.DEFAULT_BACKEND_URL,
   )
   serviceToken = secrets.get(BOT_CONFIG.SERVICE_TOKEN_ENV)
+  configured = true
 }
 
 /**
@@ -34,6 +43,15 @@ export function configureBackendService(secrets: SecretsProvider): void {
 export async function syncGuildWithBackend(
   guildData: GuildSyncPayload,
 ): Promise<void> {
+  // Refuse rather than sync unauthenticated: without the token the backend
+  // answers 401, which reads as a token mismatch instead of a startup race.
+  if (!configured) {
+    console.error(
+      `[Discord Bot] Skipped syncing guild ${guildData.name} — secrets are not resolved yet`,
+    )
+    return
+  }
+
   try {
     const res = await fetch(
       `${backendUrl}${BOT_ROUTES.BACKEND_SYNC_ENDPOINT}`,

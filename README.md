@@ -338,7 +338,7 @@ Keeping production secrets in a `.env.production` file works, but it means the r
 | Variable | Default | Notes |
 | ---------- | --------- | ------- |
 | `INFISICAL_ENABLED` | `false` | The only off switch. Any value other than `true` means off |
-| `INFISICAL_DOMAIN` | `https://app.infisical.com` | Infisical Cloud (US). Use `https://eu.infisical.com` for EU Cloud, or your own origin for a self-hosted instance |
+| `INFISICAL_DOMAIN` | `https://eu.infisical.com` | Infisical Cloud (EU). Use `https://app.infisical.com` for US Cloud, or your own origin for a self-hosted instance |
 | `INFISICAL_PROJECT_ID` | _(empty)_ | Required when enabled |
 | `INFISICAL_ENV` | `dev` | Environment slug to read |
 | `INFISICAL_SECRET_PATH` | `/` | Folder to read |
@@ -378,7 +378,7 @@ That feeds compose's own `${VAR}` interpolation, so every service — including 
 
 ### Self-hosted vs. Cloud
 
-Both work. Point `INFISICAL_DOMAIN` at your own instance to self-host, or leave the default for Infisical Cloud. The machine identity credentials are the one pair that can't live in Infisical itself — treat them as the root credential and scope the identity to just the project and environment it needs.
+Both work. Point `INFISICAL_DOMAIN` at your own instance to self-host, or leave the default for Infisical Cloud's EU region. Infisical Cloud's two regions are separate deployments with separate data — a project created in one is not visible from the other — so a US-region project needs `INFISICAL_DOMAIN=https://app.infisical.com` set explicitly. The machine identity credentials are the one pair that can't live in Infisical itself — treat them as the root credential and scope the identity to just the project and environment it needs.
 
 ## Project Structure
 

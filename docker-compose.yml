@@ -54,7 +54,7 @@ services:
       # so its password comes from compose interpolation; see
       # scripts/infisical-env.ts.
       INFISICAL_ENABLED: ${INFISICAL_ENABLED:-false}
-      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://app.infisical.com}
+      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://eu.infisical.com}
       INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
       INFISICAL_ENV: ${INFISICAL_ENV:-dev}
       INFISICAL_SECRET_PATH: ${INFISICAL_SECRET_PATH:-/}
@@ -109,7 +109,7 @@ services:
       # so its password comes from compose interpolation; see
       # scripts/infisical-env.ts.
       INFISICAL_ENABLED: ${INFISICAL_ENABLED:-false}
-      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://app.infisical.com}
+      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://eu.infisical.com}
       INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
       INFISICAL_ENV: ${INFISICAL_ENV:-dev}
       INFISICAL_SECRET_PATH: ${INFISICAL_SECRET_PATH:-/}
@@ -146,7 +146,7 @@ services:
       # so its password comes from compose interpolation; see
       # scripts/infisical-env.ts.
       INFISICAL_ENABLED: ${INFISICAL_ENABLED:-false}
-      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://app.infisical.com}
+      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://eu.infisical.com}
       INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
       INFISICAL_ENV: ${INFISICAL_ENV:-dev}
       INFISICAL_SECRET_PATH: ${INFISICAL_SECRET_PATH:-/}
@@ -178,7 +178,7 @@ services:
       # so its password comes from compose interpolation; see
       # scripts/infisical-env.ts.
       INFISICAL_ENABLED: ${INFISICAL_ENABLED:-false}
-      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://app.infisical.com}
+      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://eu.infisical.com}
       INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
       INFISICAL_ENV: ${INFISICAL_ENV:-dev}
       INFISICAL_SECRET_PATH: ${INFISICAL_SECRET_PATH:-/}
