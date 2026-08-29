@@ -245,7 +245,9 @@ The last two rows use the exact same `application.yaml` and the exact same Docke
 
 In Docker Compose the database values are set from `POSTGRES_DB`/`POSTGRES_USER`/`POSTGRES_PASSWORD` — see the root README's [Environment Variables](../../README.md#environment-variables) section. That's also where the actual dev-vs-production credential split happens (`.env` vs `.env.production`) — this module doesn't participate in that choice at all, it just reads whatever ends up in its environment.
 
-The three database variables are never read directly via `System.getenv()` in Kotlin — `Application.kt` reads them through `environment.config.property(...)`, which resolves the substitution in `application.yaml`. The auth and Discord variables above are read with `System.getenv()` instead, since they aren't part of that config block.
+None of these are read with `System.getenv()` directly any more. Every one goes through `SecretsProvider` (`src/config/`), which is built once at the top of `Application.module()`; the three database variables fall back to `environment.config.property(...)` — resolving the substitution in `application.yaml` — when the provider doesn't supply them.
+
+That indirection is what lets the whole table be sourced from Infisical instead of the environment, behind `INFISICAL_ENABLED` (off by default; see the root README's [Secret Management](../../README.md#secret-management-infisical) section). With the flag off, `SecretsProvider` is a thin wrapper over `System.getenv` and the behavior is identical to before. With it on, the backend fetches its secrets at startup and **refuses to start** if Infisical is unreachable, rather than quietly falling back to the defaults above.
 
 ## Database Schema
 

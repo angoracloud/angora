@@ -42,3 +42,9 @@ Inside Docker, use the service name as hostname: `http://backend:8080/...` (not 
 
 - `package.json` declares `"type": "module"` — don't remove it.
 - Not running / not doing anything visible: check `docker-compose logs email-bot`.
+
+## Secrets
+
+This bot has no secrets of its own yet. It still calls `loadSecrets()` from [`@angora/secrets`](../../../packages/secrets/README.md) at startup and discards the result, so that when `INFISICAL_ENABLED=true` it fails at boot on a broken Infisical configuration alongside every other service, instead of looking healthy while the rest of the stack is down. With the flag off — the default — the call is a no-op over `process.env`.
+
+When this bot grows real credentials, read them from that provider rather than `process.env` directly.

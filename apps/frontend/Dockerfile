@@ -17,6 +17,7 @@ WORKDIR /workspace
 RUN npm install -g pnpm
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages/config ./packages/config
+COPY packages/secrets ./packages/secrets
 COPY apps/frontend ./apps/frontend
 COPY apps/bots ./apps/bots
 RUN pnpm install --frozen-lockfile

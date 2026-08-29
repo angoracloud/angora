@@ -2,6 +2,7 @@ packages:
   - 'apps/frontend'
   - 'apps/bots/**'
   - 'packages/config'
+  - 'packages/secrets'
 
 # Single source of truth for dependency versions shared by more than one
 # package (frontend + all three bots all compile with the same TypeScript

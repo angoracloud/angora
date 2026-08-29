@@ -116,6 +116,8 @@ object BackendConstants {
     }
 
     object Discord {
+        const val CLIENT_ID_ENV = "DISCORD_CLIENT_ID"
+        const val BOT_URL_ENV = "DISCORD_BOT_URL"
         const val DEFAULT_CLIENT_ID = "123456789012345678"
         const val DEFAULT_BOT_URL = "http://discord-bot:3001"
         const val OAUTH_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
@@ -135,6 +137,79 @@ object BackendConstants {
 
     object DatabaseDefaults {
         const val DRIVER_CLASS = "org.postgresql.Driver"
+
+        /** Keys of the `database.*` block in `application.yaml`. */
+        const val URL_PROPERTY = "database.url"
+        const val USER_PROPERTY = "database.user"
+        const val PASSWORD_PROPERTY = "database.password"
+
+        /**
+         * The env vars `application.yaml`'s `${VAR:default}` substitution reads.
+         * Named here too because [SecretsProvider] is consulted for them *before*
+         * the config property, so Infisical can supply them when it's enabled.
+         */
+        const val URL_ENV = "DB_URL"
+        const val USER_ENV = "DB_USER"
+        const val PASSWORD_ENV = "DB_PASSWORD"
+    }
+
+    /**
+     * Infisical secret sourcing. Mirrors `INFISICAL_CONFIG` in
+     * `packages/secrets/src/constants.ts` — the JS services talk to the same API
+     * with the same variable names, so the two must stay in sync.
+     */
+    object Infisical {
+        /** Master switch. Anything but [ENABLED_VALUE] leaves the env-only path in place. */
+        const val ENABLED_ENV = "INFISICAL_ENABLED"
+        const val ENABLED_VALUE = "true"
+
+        const val DOMAIN_ENV = "INFISICAL_DOMAIN"
+        const val PROJECT_ID_ENV = "INFISICAL_PROJECT_ID"
+        const val ENVIRONMENT_ENV = "INFISICAL_ENV"
+        const val SECRET_PATH_ENV = "INFISICAL_SECRET_PATH"
+        const val CLIENT_ID_ENV = "INFISICAL_CLIENT_ID"
+        const val CLIENT_SECRET_ENV = "INFISICAL_CLIENT_SECRET"
+
+        /** Pre-issued access token. When set, the Universal Auth login call is skipped. */
+        const val TOKEN_ENV = "INFISICAL_TOKEN"
+
+        /** Infisical Cloud (US). Self-hosted installs override this. */
+        const val DEFAULT_DOMAIN = "https://app.infisical.com"
+        const val DEFAULT_ENVIRONMENT = "dev"
+        const val DEFAULT_SECRET_PATH = "/"
+
+        const val UNIVERSAL_AUTH_LOGIN_PATH = "/api/v1/auth/universal-auth/login"
+        const val LIST_SECRETS_PATH = "/api/v4/secrets"
+
+        const val PROJECT_ID_QUERY = "projectId"
+        const val ENVIRONMENT_QUERY = "environment"
+        const val SECRET_PATH_QUERY = "secretPath"
+
+        val REQUEST_TIMEOUT: Duration = Duration.ofSeconds(10)
+
+        const val BEARER_PREFIX = "Bearer "
+
+        /** HTTP statuses treated as success by the two Infisical calls. */
+        val SUCCESS_STATUS_RANGE = 200..299
+
+        /**
+         * Startup failure messages. These reach the operator through a thrown
+         * exception, never a caller — the app refuses to start rather than
+         * silently serving the dev defaults in `docker-compose.yml`.
+         */
+        object Failures {
+            const val MISSING_PROJECT_ID =
+                "$ENABLED_ENV is set but $PROJECT_ID_ENV is missing"
+            const val MISSING_CREDENTIALS =
+                "$ENABLED_ENV is set but no credentials were provided — set $TOKEN_ENV, " +
+                    "or both $CLIENT_ID_ENV and $CLIENT_SECRET_ENV"
+            /** `%s` = the configured domain. */
+            const val UNREACHABLE = "Could not reach Infisical at %s"
+            const val LOGIN_FAILED = "Infisical Universal Auth login failed"
+            const val FETCH_FAILED = "Fetching secrets from Infisical failed"
+            const val MALFORMED_LOGIN_RESPONSE =
+                "Infisical login response did not contain an accessToken"
+        }
     }
 
     object Errors {

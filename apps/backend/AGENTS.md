@@ -8,7 +8,8 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - **Migrations**: Flyway 12.11.0 (`flyway-core` + `flyway-database-postgresql`, the latter required separately since Flyway 10 split DB-specific support out of core). SQL files live in `src/main/resources/db/migration/`, run automatically via `Flyway.configure().dataSource(...).load().migrate()` in `Application.kt` on every startup, before the Exposed `Database.connect(...)` call.
 - **Build**: Maven with JDK 25
 - **Dependencies**: Use the `-jvm` suffix for all KTor artifacts — the non-suffixed coordinate for a Kotlin-multiplatform Ktor module resolves under plain Maven to a metadata-only stub with zero real classes. It compiles fine and fails silently/confusingly at runtime, so this is easy to get wrong and hard to notice.
-- **Config**: `src/main/resources/application.yaml` (must be `.yaml`, not `.yml` — Ktor's packaged-jar config auto-discovery doesn't recognize `.yml`) holds Ktor's own deployment/module config *and* the `database.*` block (`DB_URL`/`DB_USER`/`DB_PASSWORD`, each `${VAR:default}`-substituted against real env vars, no separate per-environment file). `Application.kt` reads it via `environment.config.property(...)`, not `System.getenv()` directly.
+- **Config**: `src/main/resources/application.yaml` (must be `.yaml`, not `.yml` — Ktor's packaged-jar config auto-discovery doesn't recognize `.yml`) holds Ktor's own deployment/module config *and* the `database.*` block (`DB_URL`/`DB_USER`/`DB_PASSWORD`, each `${VAR:default}`-substituted against real env vars, no separate per-environment file).
+- **Secrets**: every configurable value goes through `SecretsProvider` (`src/config/`), built once at the top of `Application.module()`. Read them as `secrets.get(BackendConstants.X_ENV)`, never `System.getenv()` — that's what lets Infisical supply them. The database settings are read from the provider *first* and fall back to `environment.config.property(...)`, whose `${VAR:default}` substitution still resolves the plain env var and the built-in default; so with `INFISICAL_ENABLED` unset the behavior is identical to before. See Secrets sourcing below.
 - **Testing**: JUnit 5 + Testcontainers (Postgres module), test-scoped in `pom.xml`. Test sources live in `test/kotlin/` — a **sibling** of `src/`, not `src/test/kotlin` — because `kotlin-maven-plugin`'s main `compile` execution scans `<sourceDirectory>src</sourceDirectory>` recursively; a nested test dir would get swept into that non-test-scoped compile. Repository tests extend `PostgresRepositoryTest` (`test/kotlin/testsupport/PostgresRepositoryTest.kt`), which starts one `postgres:18-alpine` Testcontainers container per JVM (the "singleton container" pattern — never annotate a subclass with `@Testcontainers`/`@Container`, that restarts the container per class) and runs the real Flyway migrations against it before handing subclasses a connected Exposed `Database`. See `test/kotlin/repository/DiscordRepositoryImplTest.kt` for the pattern: construct the repository with the inherited `database`, and add a plain `@AfterEach` that deletes that test's own rows — there's no generic multi-table cleanup helper, each repository test owns its own cleanup.
 
 ## Allowed changes
@@ -19,6 +20,7 @@ Scoped to `apps/backend/`. See the [root AGENTS.md](../../AGENTS.md) for repo-wi
 - `src/auth/` — Principals (`UserPrincipal`, `ServicePrincipal`), the session cookie type (`AngoraSession`), and the `requireUser()` route helper. See Authentication conventions below before changing anything here
 - `src/dto/` — Request/response DTOs and models, including the shared `ApiError`/`ApiErrorEnvelope` in `src/dto/ErrorDto.kt`
 - `src/validation/` — Request validation rules, DTO validators, and Ktor `RequestValidation` plugin configuration
+- `src/config/` — `SecretsProvider` and its two implementations, the Infisical REST client, and the factory that picks between them. See Secrets sourcing below before changing anything here
 - `src/constants/Constants.kt` — Backend constants (`BackendConstants`): route paths, defaults, error codes/messages, and validation limits/patterns/messages
 - `src/error/ApiException.kt` — the shared exception type StatusPages maps to the error envelope; throw this from routes/services for expected 4xx/5xx conditions, see `apps/backend/README.md`'s "Error Handling & Request Logging" section
 - `src/Application.kt` — KTor plugins, dependency wiring, and route mounting
@@ -64,6 +66,20 @@ Full behavior is documented in [`README.md`](README.md#authentication); these ar
 
 8. **Adding a signed or crypto dependency**: check the license first (the root AGENTS.md's Licensing section). `de.mkammerer:argon2-jvm` is LGPL-3.0 and was rejected for that reason; Bouncy Castle's `bcprov-jdk18on` is MIT. Note `bc-kotlin` is not a substitute — it wraps PKI/certificate APIs, not crypto primitives, and isn't published to Maven Central.
 
+## Secrets sourcing
+
+1. **Build the provider before anything that needs configuration.** `SecretsProviderFactory.create()` is the first line of `Application.module()` because `connectDatabase()` is itself configured from it. Don't reorder.
+
+2. **Enabled-but-unreachable must stay fatal.** With `INFISICAL_ENABLED=true`, a failed login or fetch throws and aborts startup. Do not add a fallback to the environment on error: the backend would then boot on the `angora`/`angora` credentials in `docker-compose.yml` and look perfectly healthy. `INFISICAL_ENABLED=false` is the only off switch, and there deliberately isn't a second one.
+
+3. **Don't reintroduce `System.getenv()` in routes, services or plugins.** Every reader takes a `SecretsProvider`; the plugins (`configureHttp`, `configureSecurity`) and `Dependencies` all receive one. A direct `getenv` silently opts that value out of Infisical.
+
+4. **Empty string is a value, not an absence.** `get(name, default)` only returns the default when the name is absent. `CORS_ALLOWED_ORIGINS=""` must keep meaning "allow nothing" rather than falling through to a default origin — see rule 6 of the Authentication conventions.
+
+5. **Don't reach for `com.infisical:sdk`.** It carries `spring-boot-starter-parent` as its parent POM plus okhttp 2.7.5 (EOL 2016) and logback 1.3.14 (this module pins 1.5.38), all shaded into `backend.jar`. The two REST calls in `InfisicalSecretsProvider.kt` use the JDK's own `java.net.http.HttpClient` and add no dependency at all. Keep it that way.
+
+6. **The env var names exist in three places** — `BackendConstants.Infisical`, `packages/secrets/src/constants.ts`, and `scripts/infisical-env.ts`. They describe one API; change one, check the other two.
+
 ## Constants discipline
 
 **No hardcoded literals in routes, services, repositories, or plugins — full stop.** Everything below belongs in `src/constants/Constants.kt` under `BackendConstants`, even when it currently appears exactly once, and this applies to every change, not just to adding an endpoint. The frontend holds the same rule for its own literals (see [`apps/frontend/AGENTS.md`](../frontend/AGENTS.md)); this is the backend half of it.
@@ -72,7 +88,7 @@ What that covers today, and the group each belongs in:
 
 - **`Routes`** — every path segment (`AUTH_BASE`, `AUTH_LOGIN`, …). Routes are mounted from these constants, never from a string typed at the `route(...)` call.
 - **`Paths`** — path literals with no single owner. `ROOT` (`"/"`) lives here rather than being retyped as a cookie path, a healthcheck target, or a redirect.
-- **`Auth`** — provider names, cookie attributes, TTLs and sweep intervals, token sizes, hash algorithm names, the `Argon2` parameter block, lockout and rate-limit settings, and the env var names they are read from (`COOKIE_SECURE_ENV`, `CORS_ALLOWED_ORIGINS_ENV`, …). Read env vars as `System.getenv(BackendConstants.Auth.X_ENV)`, never with the name inline.
+- **`Auth`** — provider names, cookie attributes, TTLs and sweep intervals, token sizes, hash algorithm names, the `Argon2` parameter block, lockout and rate-limit settings, and the env var names they are read from (`COOKIE_SECURE_ENV`, `CORS_ALLOWED_ORIGINS_ENV`, …). Read env vars as `secrets.get(BackendConstants.Auth.X_ENV)`, never with the name inline and never via `System.getenv` — see Secrets sourcing above.
 - **`Errors`** — the `code`/`message` pair for every `ApiException` and `respondError` call, as a `_CODE`/`_MESSAGE` pair. These are the API's error contract; other endpoints end up needing the same code.
 - **API response status literals** — values a DTO carries as part of the contract, e.g. `Auth.LogoutStatus.CURRENT_SESSION` / `ALL_SESSIONS` for `LogoutResponse.status`.
 - **Server-side log reason strings** — `Errors.LoginFailureReasons`. Templated ones are `String.format` patterns applied at the call site (`ACCOUNT_LOCKED.format(user.lockedUntil, user.id)`), not string interpolation.

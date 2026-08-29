@@ -1,5 +1,6 @@
 package cloud.angora
 
+import cloud.angora.config.SecretsProvider
 import cloud.angora.constants.BackendConstants
 import cloud.angora.repository.DiscordRepositoryImpl
 import cloud.angora.repository.HealthRepositoryImpl
@@ -25,7 +26,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
  * a repository directly, which is what keeps the N-tier boundary from eroding at
  * the wiring layer.
  */
-class Dependencies(database: Database) {
+class Dependencies(database: Database, secrets: SecretsProvider) {
 
     private val healthRepository = HealthRepositoryImpl(database)
     private val discordRepository = DiscordRepositoryImpl(database)
@@ -40,8 +41,14 @@ class Dependencies(database: Database) {
 
     val discordService: DiscordService = DiscordServiceImpl(
         discordRepository = discordRepository,
-        clientId = System.getenv("DISCORD_CLIENT_ID") ?: BackendConstants.Discord.DEFAULT_CLIENT_ID,
-        botUrl = System.getenv("DISCORD_BOT_URL") ?: BackendConstants.Discord.DEFAULT_BOT_URL
+        clientId = secrets.get(
+            BackendConstants.Discord.CLIENT_ID_ENV,
+            BackendConstants.Discord.DEFAULT_CLIENT_ID
+        ),
+        botUrl = secrets.get(
+            BackendConstants.Discord.BOT_URL_ENV,
+            BackendConstants.Discord.DEFAULT_BOT_URL
+        )
     )
 
     val authService: AuthService = AuthServiceImpl(

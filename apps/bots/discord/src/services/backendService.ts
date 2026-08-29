@@ -1,14 +1,32 @@
 import type { Client } from 'discord.js'
+import type { SecretsProvider } from '@angora/secrets'
 import { BOT_CONFIG, BOT_ROUTES } from '../constants.js'
 import type { GuildSyncPayload } from '../types/index.js'
 
-const backendUrl = process.env.BACKEND_URL || BOT_CONFIG.DEFAULT_BACKEND_URL
+// Explicitly `string`: BOT_CONFIG is `as const`, so the initializer would
+// otherwise narrow this to the default URL's literal type.
+let backendUrl: string = BOT_CONFIG.DEFAULT_BACKEND_URL
 
 /**
  * Service token authenticating this bot to the backend. The backend registers the
  * matching hash at startup from the same value, so the two must agree.
  */
-const serviceToken = process.env[BOT_CONFIG.SERVICE_TOKEN_ENV]
+let serviceToken: string | undefined
+
+/**
+ * Binds this module to the secrets resolved at startup.
+ *
+ * These used to be module-level constants read straight from `process.env` at
+ * import time. They can't be any more: with Infisical enabled the values aren't
+ * known until after the async fetch in `loadSecrets()` completes.
+ */
+export function configureBackendService(secrets: SecretsProvider): void {
+  backendUrl = secrets.get(
+    BOT_CONFIG.BACKEND_URL_ENV,
+    BOT_CONFIG.DEFAULT_BACKEND_URL,
+  )
+  serviceToken = secrets.get(BOT_CONFIG.SERVICE_TOKEN_ENV)
+}
 
 /**
  * Synchronizes an individual Discord guild's live state with the Angora backend.

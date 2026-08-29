@@ -8,13 +8,14 @@ WORKDIR /workspace
 RUN npm install -g pnpm
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages/config ./packages/config
+COPY packages/secrets ./packages/secrets
 COPY apps/frontend ./apps/frontend
 COPY apps/bots ./apps/bots
 RUN pnpm install --frozen-lockfile
 
-# Compile TypeScript to JavaScript
-WORKDIR /workspace/apps/bots/discord
-RUN pnpm run build
+# Compile TypeScript to JavaScript. The `...` suffix builds this bot's workspace
+# dependencies first — @angora/secrets emits the dist/ + .d.ts that tsc here resolves.
+RUN pnpm --filter angora-discord-bot... run build
 
 # Extract standalone production dependencies to /deploy-output
 WORKDIR /workspace

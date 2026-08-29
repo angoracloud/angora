@@ -24,6 +24,7 @@ Angora is a self-hosted CRM/support system with a modern full-stack architecture
 - [CI, Git Hooks \& Deployment](#ci-git-hooks--deployment)
 - [Docker Compose Commands](#docker-compose-commands)
 - [Environment Variables](#environment-variables)
+- [Secret Management (Infisical)](#secret-management-infisical)
 - [Project Structure](#project-structure)
 - [Health Checks](#health-checks)
 - [Database](#database)
@@ -98,6 +99,7 @@ Each service has its own README with service-specific setup, commands, and troub
 | Discord bot | [`apps/bots/discord/README.md`](apps/bots/discord/README.md) |
 | Email bot | [`apps/bots/email/README.md`](apps/bots/email/README.md) |
 | Shared TS/ESLint/Prettier/Vite config (`@angora/config`) | [`packages/config/README.md`](packages/config/README.md) |
+| Shared secrets loader (`@angora/secrets`) | [`packages/secrets/README.md`](packages/secrets/README.md) |
 
 ## Prerequisites
 
@@ -160,7 +162,7 @@ pnpm run dev:frontend   # vite dev server on :3000
 pnpm run dev:backend    # Ktor hot-reload server on :8080 — requires JDK 25 + Maven on PATH
 ```
 
-Install JS/TS dependencies once from the repo root — this covers the frontend, all three bots, and the shared `packages/config`, and also sets up the git hooks described in [CI, Git Hooks & Deployment](#ci-git-hooks--deployment):
+Install JS/TS dependencies once from the repo root — this covers the frontend, all three bots, and the shared `packages/config` and `packages/secrets`, and also sets up the git hooks described in [CI, Git Hooks & Deployment](#ci-git-hooks--deployment):
 
 ```bash
 pnpm install
@@ -183,7 +185,7 @@ Every dependency in this repo is pinned to an exact version — no `^`/`~` range
 
 ### Sharing versions across packages (pnpm catalog)
 
-The workspace (`apps/frontend` + the three bots + `packages/config`) uses a [pnpm catalog](https://pnpm.io/catalogs) for dependencies used by more than one package, all defined once in `pnpm-workspace.yaml`:
+The workspace (`apps/frontend` + the three bots + `packages/config` + `packages/secrets`) uses a [pnpm catalog](https://pnpm.io/catalogs) for dependencies used by more than one package, all defined once in `pnpm-workspace.yaml`:
 
 ```yaml
 catalog:
@@ -325,6 +327,59 @@ Authentication behavior (login, session cookies, password hashing, lockout, serv
 
 Backend-specific variables (`DB_URL`, `DB_USER`, `DB_PASSWORD`) are documented in [`apps/backend/README.md`](apps/backend/README.md#environment-variables).
 
+Every value above can instead be sourced from Infisical — see the next section.
+
+## Secret Management (Infisical)
+
+Keeping production secrets in a `.env.production` file works, but it means the real database password and service tokens live in plaintext on whatever host runs the stack. Angora can read them from [Infisical](https://infisical.com) instead, behind a single flag.
+
+**It is off by default.** With `INFISICAL_ENABLED` unset or `false`, every service reads plain environment variables exactly as documented above, and nothing reaches out to the network. Nothing about the default setup changes.
+
+| Variable | Default | Notes |
+| ---------- | --------- | ------- |
+| `INFISICAL_ENABLED` | `false` | The only off switch. Any value other than `true` means off |
+| `INFISICAL_DOMAIN` | `https://app.infisical.com` | Infisical Cloud (US). Use `https://eu.infisical.com` for EU Cloud, or your own origin for a self-hosted instance |
+| `INFISICAL_PROJECT_ID` | _(empty)_ | Required when enabled |
+| `INFISICAL_ENV` | `dev` | Environment slug to read |
+| `INFISICAL_SECRET_PATH` | `/` | Folder to read |
+| `INFISICAL_CLIENT_ID` / `INFISICAL_CLIENT_SECRET` | _(empty)_ | Machine identity credentials (Universal Auth) |
+| `INFISICAL_TOKEN` | _(empty)_ | Pre-issued access token. Set this *instead of* the client pair to skip the login call |
+
+### How it resolves
+
+Each service fetches its secrets once at startup and prefers them over the environment, which stays the fallback for anything the project doesn't define. Rotating a secret requires a restart; there is no polling.
+
+If Infisical is enabled but unreachable or misconfigured, services refuse to start rather than falling back to the environment. A silent fallback would let a production deployment boot on the `angora`/`angora` development credentials and report healthy.
+
+### Environments
+
+An Infisical project holds several environments (`dev`, `staging`, `prod`, plus any you add). `INFISICAL_ENV` picks which one this deployment reads, by slug — it defaults to `dev`, and `.env.production.example` ships with `prod`.
+
+One stack reads one environment: the same slug goes to every service, so `backend` and the bots always see a consistent set. Running dev and prod side by side means two stacks with different `INFISICAL_ENV` values, not one stack straddling both. `INFISICAL_SECRET_PATH` narrows further within the chosen environment if you keep secrets in folders (`/`, the default, reads the root).
+
+Note that the slug is what matters, not the display name — Infisical's UI shows "Development" for the `dev` slug.
+
+### The frontend has no secrets
+
+`apps/frontend` is deliberately not wired into any of this. It's compiled to static assets by Vite and served by nginx, so anything given to it at build time ships to every visitor in the bundle — a secret there wouldn't be secret. It talks to the API on the same origin via a relative `/api` path, authenticated by the session cookie the browser already holds, so it needs no credentials of its own. `GIT_SHA` is the only build-time value it takes, and that's a commit hash.
+
+### The one exception: Postgres
+
+`postgres` runs a third-party image, and it only reads `POSTGRES_PASSWORD` at `initdb` — on the very first start against an empty volume, before any of our code runs. No in-process lookup can reach it.
+
+To source the whole compose file from Infisical, Postgres included, generate an env file on the host first:
+
+```bash
+node scripts/infisical-env.ts          # writes .env.infisical (gitignored)
+docker-compose --env-file .env.infisical up -d --build
+```
+
+That feeds compose's own `${VAR}` interpolation, so every service — including `postgres` — gets its values from Infisical. The in-process lookups still run on top of it.
+
+### Self-hosted vs. Cloud
+
+Both work. Point `INFISICAL_DOMAIN` at your own instance to self-host, or leave the default for Infisical Cloud. The machine identity credentials are the one pair that can't live in Infisical itself — treat them as the root credential and scope the identity to just the project and environment it needs.
+
 ## Project Structure
 
 ```
@@ -353,10 +408,12 @@ angora/
 │       └── AGENTS.md               # Shared agent rules for all three bots
 │
 ├── packages/
-│   └── config/                     # @angora/config — see packages/config/README.md, AGENTS.md
+│   ├── config/                     # @angora/config — see packages/config/README.md, AGENTS.md
+│   └── secrets/                    # @angora/secrets — see packages/secrets/README.md, AGENTS.md
 │
 ├── scripts/
-│   └── check-dependency-age.ts    # Maven + npm supply-chain age guardrail
+│   ├── check-dependency-age.ts    # Maven + npm supply-chain age guardrail
+│   └── infisical-env.ts           # Writes .env.infisical for `docker-compose --env-file` (covers postgres)
 ├── docker-compose.yml              # frontend/bots build with context: . (repo root); backend keeps context: ./apps/backend
 ├── package.json                    # Root scripts (lint/typecheck/test/format/prepare), pinned packageManager, husky + prettier devDependencies
 ├── prettier.config.ts              # Re-exports @angora/config/prettier/index.ts
@@ -406,7 +463,7 @@ Things that look done but have known gaps worth knowing about before relying on 
 
 ## Agent Configuration
 
-For AI agent assistance with this project, see [AGENTS.md](./AGENTS.md) for repo-wide instructions and constraints. Each module also has its own `AGENTS.md` with rules scoped to that directory: [`apps/backend`](apps/backend/AGENTS.md), [`apps/frontend`](apps/frontend/AGENTS.md), [`apps/bots`](apps/bots/AGENTS.md), [`packages/config`](packages/config/AGENTS.md).
+For AI agent assistance with this project, see [AGENTS.md](./AGENTS.md) for repo-wide instructions and constraints. Each module also has its own `AGENTS.md` with rules scoped to that directory: [`apps/backend`](apps/backend/AGENTS.md), [`apps/frontend`](apps/frontend/AGENTS.md), [`apps/bots`](apps/bots/AGENTS.md), [`packages/config`](packages/config/AGENTS.md), [`packages/secrets`](packages/secrets/AGENTS.md).
 
 Task-specific procedures live in `.agents/skills/`, kept outside any single vendor's directory so every agent can read them: [`pr-review`](.agents/skills/pr-review/SKILL.md) is a read-only pull-request review protocol (`.claude/skills/pr-review` symlinks to it so Claude Code loads it as a skill).
 

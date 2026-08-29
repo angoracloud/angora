@@ -64,6 +64,9 @@ importers:
 
   apps/bots/discord:
     dependencies:
+      '@angora/secrets':
+        specifier: workspace:*
+        version: link:../../../packages/secrets
       discord.js:
         specifier: 14.27.0
         version: 14.27.0
@@ -85,6 +88,10 @@ importers:
         version: 4.1.10(@types/node@24.13.3)(vite@8.1.4(@types/node@24.13.3))
 
   apps/bots/email:
+    dependencies:
+      '@angora/secrets':
+        specifier: workspace:*
+        version: link:../../../packages/secrets
     devDependencies:
       '@angora/config':
         specifier: workspace:*
@@ -103,6 +110,10 @@ importers:
         version: 4.1.10(@types/node@24.13.3)(vite@8.1.4(@types/node@24.13.3))
 
   apps/bots/slack:
+    dependencies:
+      '@angora/secrets':
+        specifier: workspace:*
+        version: link:../../../packages/secrets
     devDependencies:
       '@angora/config':
         specifier: workspace:*
@@ -220,6 +231,24 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.1.4(@types/node@24.13.3)
+
+  packages/secrets:
+    devDependencies:
+      '@angora/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      eslint:
+        specifier: 'catalog:'
+        version: 10.7.0
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.3)(vite@8.1.4(@types/node@24.13.3))
 
 packages:
 

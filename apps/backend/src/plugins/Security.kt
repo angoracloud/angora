@@ -1,6 +1,7 @@
 package cloud.angora.plugins
 
 import cloud.angora.auth.AngoraSession
+import cloud.angora.config.SecretsProvider
 import cloud.angora.constants.BackendConstants
 import cloud.angora.error.respondError
 import cloud.angora.service.AuthService
@@ -31,14 +32,15 @@ import kotlin.time.toKotlinDuration
  */
 fun Application.configureSecurity(
     authService: AuthService,
-    serviceTokenService: ServiceTokenService
+    serviceTokenService: ServiceTokenService,
+    secrets: SecretsProvider
 ) {
     install(SessionsPlugin) {
         cookie<AngoraSession>(BackendConstants.Auth.COOKIE_NAME) {
             cookie.path = BackendConstants.Paths.ROOT
             cookie.httpOnly = true
             // Off for plain-HTTP local dev; anything with TLS in front must set it.
-            cookie.secure = System.getenv(BackendConstants.Auth.COOKIE_SECURE_ENV)?.toBoolean() ?: false
+            cookie.secure = secrets.get(BackendConstants.Auth.COOKIE_SECURE_ENV)?.toBoolean() ?: false
             cookie.maxAgeInSeconds = BackendConstants.Auth.SESSION_TTL.seconds
             cookie.extensions["SameSite"] = BackendConstants.Auth.COOKIE_SAME_SITE
         }

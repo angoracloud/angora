@@ -1,4 +1,5 @@
 import http from 'node:http'
+import { loadSecrets } from '@angora/secrets'
 import { BOT_CONFIG, BOT_ROUTES } from './constants.js'
 
 const server = http.createServer((req, res) => {
@@ -18,4 +19,13 @@ const server = http.createServer((req, res) => {
 
 server.listen(BOT_CONFIG.DEFAULT_PORT, () => {
   console.log('Email Bot ready')
+})
+
+// This bot consumes no secrets of its own yet, so nothing here reads from the
+// result. Resolving them anyway keeps every service on the same startup contract:
+// if INFISICAL_ENABLED is set but misconfigured, this bot fails loudly at boot
+// alongside the others rather than looking healthy while the stack is broken.
+await loadSecrets().catch((err: unknown) => {
+  console.error('[Email Bot] Could not load secrets:', err)
+  process.exit(1)
 })

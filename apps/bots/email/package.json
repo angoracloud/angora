@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "test": "vitest run"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@angora/secrets": "workspace:*"
+  },
   "devDependencies": {
     "@angora/config": "workspace:*",
     "@types/node": "catalog:",

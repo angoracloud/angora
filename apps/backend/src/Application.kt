@@ -1,5 +1,7 @@
 package cloud.angora
 
+import cloud.angora.config.SecretsProvider
+import cloud.angora.config.loadSecrets
 import cloud.angora.constants.BackendConstants
 import cloud.angora.plugins.configureErrorHandling
 import cloud.angora.plugins.configureHttp
@@ -26,18 +28,21 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
-    val database = connectDatabase()
-    val dependencies = Dependencies(database)
+    // First, because the database connection below is configured from it.
+    val secrets = loadSecrets()
+
+    val database = connectDatabase(secrets)
+    val dependencies = Dependencies(database, secrets)
 
     configureMonitoring()
     configureErrorHandling()
-    configureHttp()
-    configureSecurity(dependencies.authService, dependencies.serviceTokenService)
+    configureHttp(secrets)
+    configureSecurity(dependencies.authService, dependencies.serviceTokenService, secrets)
     configureValidation()
 
     dependencies.serviceTokenService.register(
         name = BackendConstants.Auth.DISCORD_BOT_TOKEN_NAME,
-        token = System.getenv(BackendConstants.Auth.SERVICE_TOKEN_DISCORD_BOT_ENV)
+        token = secrets.get(BackendConstants.Auth.SERVICE_TOKEN_DISCORD_BOT_ENV)
     )
 
     startExpiredSessionSweep(dependencies.authService)
@@ -53,11 +58,27 @@ fun Application.module() {
 /**
  * Runs Flyway, then opens the Exposed connection — in that order, so the schema is
  * always current before any query can run.
+ *
+ * Each setting is read from [secrets] first, then from `application.yaml`, whose
+ * `${DB_URL:default}` substitution already resolves the plain env var and the
+ * built-in default. So with Infisical off this behaves exactly as it always has.
  */
-private fun Application.connectDatabase(): Database {
-    val url = environment.config.property("database.url").getString()
-    val user = environment.config.property("database.user").getString()
-    val password = environment.config.property("database.password").getString()
+private fun Application.connectDatabase(secrets: SecretsProvider): Database {
+    fun setting(secretName: String, configKey: String): String =
+        secrets.get(secretName) ?: environment.config.property(configKey).getString()
+
+    val url = setting(
+        BackendConstants.DatabaseDefaults.URL_ENV,
+        BackendConstants.DatabaseDefaults.URL_PROPERTY
+    )
+    val user = setting(
+        BackendConstants.DatabaseDefaults.USER_ENV,
+        BackendConstants.DatabaseDefaults.USER_PROPERTY
+    )
+    val password = setting(
+        BackendConstants.DatabaseDefaults.PASSWORD_ENV,
+        BackendConstants.DatabaseDefaults.PASSWORD_PROPERTY
+    )
 
     Flyway.configure()
         .dataSource(url, user, password)

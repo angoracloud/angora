@@ -8,6 +8,7 @@ This document provides repo-wide instructions and constraints for AI agents work
 | Frontend | [`apps/frontend/AGENTS.md`](apps/frontend/AGENTS.md) |
 | Bots (slack/discord/email — identical rules) | [`apps/bots/AGENTS.md`](apps/bots/AGENTS.md) |
 | Shared config (`@angora/config`) | [`packages/config/AGENTS.md`](packages/config/AGENTS.md) |
+| Shared secrets loader (`@angora/secrets`) | [`packages/secrets/AGENTS.md`](packages/secrets/AGENTS.md) |
 
 ## Project Overview
 
@@ -44,18 +45,29 @@ See [README.md](README.md) for the full quickstart, service list, and project st
 ## Infrastructure Files
 
 - **`docker-compose.yml`**: Service orchestration. `frontend`, `slack-bot`, `discord-bot`, `email-bot` build with `context: .` (repo root) + an explicit `dockerfile:` path — required so their builds can see `packages/config`. Only `backend` still uses `context: ./apps/backend`. Don't revert the four to a per-app context; that would break `@angora/config` resolution inside the image. Database credentials and host ports are `${VAR:-default}` interpolations reading from `.env` — see Environment Variables below.
-- **`pnpm-workspace.yaml`**: Workspace packages (including `packages/config`), the shared version `catalog:`, and the `minimumReleaseAge` supply-chain policy — see Dependency Pinning & Guardrails below before touching this file
+- **`pnpm-workspace.yaml`**: Workspace packages (including `packages/config` and `packages/secrets`), the shared version `catalog:`, and the `minimumReleaseAge` supply-chain policy — see Dependency Pinning & Guardrails below before touching this file
 - **`package.json`** (repo root): `packageManager` pin, the `check:dep-age`/`lint`/`typecheck`/`test`/`format`/`format:check`/`prepare`/`dev:frontend`/`dev:backend` scripts, and `husky` + `prettier` + `@angora/config` as devDependencies; not a workspace package itself. `dev:frontend`/`dev:backend` just shell out to each service's own local-dev command (see `apps/frontend/README.md` / `apps/backend/README.md`) — they exist purely so you don't have to `cd` in first, they don't add new behavior.
 - **`prettier.config.ts`** / **`.prettierignore`** (repo root): The one Prettier config for the whole repo — don't add per-package Prettier configs
 - **`.dockerignore`** (repo root): Used by the four root-context builds above; `apps/backend/.dockerignore` is separate and still used by backend's own context
 - **`.env.example`** / **`.env.production.example`** (repo root): Templates for `.env`/`.env.production`, which are gitignored. Keep these in sync with whatever variables `docker-compose.yml` actually reads — if you add a new `${VAR:-default}` to docker-compose.yml, add the variable (with its default) to `.env.example` too, and to `.env.production.example` if it's something a real deployment should set explicitly (e.g. a password).
+- **`scripts/infisical-env.ts`**: Resolves secrets from Infisical on the *host* and writes an env file for `docker-compose --env-file`. Exists because `postgres` is a third-party image whose `POSTGRES_PASSWORD` is only read at initdb — no in-process lookup can reach it, so compose's own interpolation has to be fed instead. Zero dependencies, run directly with `node`. It duplicates the two REST calls in `packages/secrets/src/infisical.ts` on purpose (Node doesn't map a `.js` specifier onto a `.ts` file, so it can't import them) — keep the two in sync.
 - **`scripts/check-dependency-age.ts`**: Maven + npm dependency-age audit; keep it in sync if `pom.xml`'s structure or the catalog format changes. It reads every `package.json` in the workspace (root, `packages/config`, `apps/frontend`, each bot) — add new manifests to its `manifests` list if you add a new workspace package. Runs directly via `node scripts/check-dependency-age.ts` — Node 24 executes `.ts` natively, no build step or `ts-node` needed.
 - **`.gitignore`**: Standard ignore patterns. Do not add a bare `Dockerfile` entry — that previously matched every file named `Dockerfile` in the repo and silently kept all five of them out of git history. The `.env` block uses `.env` / `.env.*` with `!.env.example` / `!.env.*.example` negations — if you add a new env file pattern, make sure real files stay ignored and `.example` templates stay tracked.
 - **`README.md`** / module `README.md`s: Documentation only.
 
 ## Environment Variables
 
-`docker-compose.yml` sources its configurable values from environment variables, each with a `:-default` fallback matching the original hardcoded values — so `docker-compose up --build` still works with zero setup even if no `.env` file exists. The variables: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `SERVICE_TOKEN_DISCORD_BOT`, `COOKIE_SECURE`, `CORS_ALLOWED_ORIGINS`. `.env.example` documents all of them; `.env.production.example` is the same set with placeholder secrets that must be replaced.
+`docker-compose.yml` sources its configurable values from environment variables, each with a `:-default` fallback matching the original hardcoded values — so `docker-compose up --build` still works with zero setup even if no `.env` file exists. The variables: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `SERVICE_TOKEN_DISCORD_BOT`, `COOKIE_SECURE`, `CORS_ALLOWED_ORIGINS`. Plus the Infisical block: `INFISICAL_ENABLED`, `INFISICAL_DOMAIN`, `INFISICAL_PROJECT_ID`, `INFISICAL_ENV`, `INFISICAL_SECRET_PATH`, `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_TOKEN` — see below. `.env.example` documents all of them; `.env.production.example` is the same set with placeholder secrets that must be replaced.
+
+### Infisical
+
+Every service can source its secrets from Infisical instead of the environment, behind `INFISICAL_ENABLED` (default `false`). With the flag off, nothing changes: each service reads plain env vars exactly as before. With it on, the four services we build resolve their own secrets at startup — `apps/backend/src/config/` in Kotlin, [`@angora/secrets`](packages/secrets/README.md) for the bots — preferring Infisical values and falling back to the environment.
+
+Three rules that are easy to break:
+
+1. **Enabled + unreachable must stay fatal.** Services throw at startup rather than falling back, so a misconfiguration can't quietly boot the stack on the `angora`/`angora` dev credentials in `docker-compose.yml`. Don't add a "graceful degradation" fallback.
+2. **Postgres is the exception.** It's a third-party image and only reads `POSTGRES_PASSWORD` at initdb, before any of our code runs. Sourcing it from Infisical means feeding compose itself — `node scripts/infisical-env.ts && docker-compose --env-file .env.infisical up -d --build`.
+3. **The variable names live in three places** — `BackendConstants.Infisical`, `packages/secrets/src/constants.ts`, and `scripts/infisical-env.ts`. Change one, check the other two.
 
 `SERVICE_TOKEN_DISCORD_BOT` is read by **two** services (`backend` and `discord-bot`) and they must see the same value — the backend registers its hash, the bot presents the raw token. Changing it in one place only breaks guild syncing with a 401.
 
@@ -198,7 +210,7 @@ New API endpoints go in `apps/backend` — see [`apps/backend/AGENTS.md`](apps/b
 - Never commit secrets to the repository
 - Use environment variables for sensitive data
 - Database credentials are in docker-compose.yml (for development only)
-- For production, use proper secret management
+- For production, set `INFISICAL_ENABLED=true` and keep the real values in an Infisical project rather than in `.env.production` — see [Infisical](#infisical) above
 
 ## Style Guidelines
 
