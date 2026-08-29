@@ -267,22 +267,36 @@ One stack reads one environment: the same slug goes to every service. Run dev an
 
 ### The one exception: Postgres
 
-`postgres` is a third-party image that reads `POSTGRES_PASSWORD` at `initdb` — the first start against an empty volume, before any of our code runs. Covering it means feeding compose's own interpolation, which happens on the host:
+`postgres` is a third-party image that reads `POSTGRES_PASSWORD` at `initdb` — the first start against an empty volume, before any of our code runs. Covering it means feeding compose's own interpolation, on the host:
 
 ```bash
-node scripts/infisical-env.ts          # writes .env.infisical (gitignored)
-docker-compose --env-file .env.infisical up -d --build
+node scripts/infisical-env.ts                              # writes .env.infisical (gitignored)
+cat .env .env.infisical > .env.bootstrap                   # config from .env, secrets override
+docker-compose --env-file .env.bootstrap up -d --build
+rm .env.bootstrap
 ```
 
-**This is a one-time bootstrap, not the normal way to run the stack.** Once the volume exists, `POSTGRES_PASSWORD` is ignored entirely — the container starts fine with it unset — so every later run is a plain `docker-compose up`. Postgres keeps the password it was initialized with, and the backend resolves the same value from Infisical in-process.
+The `cat` matters: `--env-file` makes compose read that file *instead of* `.env`, so passing `.env.infisical` alone would drop every variable Infisical doesn't carry back to its `:-default` — `angora` for the database, `false` for `COOKIE_SECURE`. Later lines win in an env file, so concatenating gives config from `.env` and secrets from Infisical. Delete the merged file afterwards; it holds secrets at your umask, not `0600`.
 
-Store it once, as `POSTGRES_PASSWORD`. The backend calls it `DB_PASSWORD` internally but checks both spellings, so no duplicate entry is needed. Same for `POSTGRES_USER`.
+**This is a one-time bootstrap, not the normal way to run the stack.** Once the volume exists, `POSTGRES_PASSWORD` is ignored entirely — the container starts fine with it unset — so every later run is a plain `docker-compose up`.
 
-Two things about that bootstrap run fail quietly:
+### What belongs in Infisical
 
-**`--env-file` replaces `.env` rather than merging with it.** Any variable in `.env` but not in Infisical falls back to the `:-default` in `docker-compose.yml` — `angora` for `POSTGRES_PASSWORD`, `dev-discord-bot-token` for the service token, `false` for `COOKIE_SECURE`. For that one run, the Infisical project must hold **every** variable listed in [Environment Variables](#environment-variables), not just the sensitive ones.
+Secrets only. `POSTGRES_PASSWORD`, `SERVICE_TOKEN_DISCORD_BOT`, `DISCORD_BOT_TOKEN`. A database name, a username and a port aren't credentials; leave them in `.env`.
 
-**Changing `POSTGRES_PASSWORD` later doesn't reach the database.** Re-running the script won't help: initdb has already happened. Postgres keeps the old password while the backend picks up the new one, then fails to connect. Rotate with `ALTER USER`, or `docker-compose down -v` to recreate the volume and lose the data.
+Store the password once, as `POSTGRES_PASSWORD` — the backend calls it `DB_PASSWORD` internally but checks both spellings. Same for `POSTGRES_USER`/`DB_USER`.
+
+**`DB_URL` is the exception, and it has no `POSTGRES_DB` fallback.** It's a full JDBC string that compose builds from `POSTGRES_DB`, and a bare database name can't be turned back into one without hardcoding a host and port that would be wrong for local dev. So changing the database name means changing `POSTGRES_DB` in `.env` — not in Infisical, where the backend would still connect to the old name on normal runs.
+
+**Rotating `POSTGRES_PASSWORD` later doesn't reach the database.** Re-running the script won't help: initdb has already happened. Postgres keeps the old password while the backend picks up the new one, then fails to connect. Rotate with `ALTER USER`, or `docker-compose down -v` to recreate the volume and lose the data.
+
+### Self-hosted vs. Cloud
+
+Both work. Point `INFISICAL_DOMAIN` at your own instance to self-host, or leave the default for Infisical Cloud's EU region.
+
+The two Cloud regions are separate deployments holding separate data: a project created in one is not visible from the other. A US-region project needs `INFISICAL_DOMAIN=https://app.infisical.com` set explicitly.
+
+The machine identity credentials are the one pair that can't live in Infisical itself. Treat them as the root credential, and scope the identity to just the project and environment it needs.
 
 ## Project Structure
 

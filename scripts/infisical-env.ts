@@ -9,9 +9,11 @@
 // Run this once, to initialize the volume. Afterwards POSTGRES_PASSWORD is
 // ignored and plain `docker-compose up` is correct.
 //
-// Usage:
+// Usage — merge with .env rather than replacing it, since --env-file reads only
+// the file you name:
 //   node scripts/infisical-env.ts [--out=.env.infisical]
-//   docker-compose --env-file .env.infisical up -d --build
+//   cat .env .env.infisical > .env.bootstrap
+//   docker-compose --env-file .env.bootstrap up -d --build && rm .env.bootstrap
 //
 // Duplicates the two calls in packages/secrets/src/infisical.ts because Node
 // won't resolve that package's `.js` specifiers to `.ts` files. Keep them in sync.
@@ -199,5 +201,7 @@ console.log(
   `[infisical-env] Wrote ${Object.keys(secrets).length} secret(s) to ${relative}`,
 )
 console.log(
-  `[infisical-env] Run: docker-compose --env-file ${relative} up -d --build`,
+  `[infisical-env] Merge with your env file, then bring the stack up:\n` +
+    `  cat .env ${relative} > .env.bootstrap\n` +
+    `  docker-compose --env-file .env.bootstrap up -d --build && rm .env.bootstrap`,
 )
