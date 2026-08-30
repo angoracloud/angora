@@ -7,8 +7,10 @@
   "scripts": {
     "prepare": "husky",
     "check:dep-age": "node scripts/check-dependency-age.ts",
+    "build:packages": "pnpm --filter @angora/secrets run build",
+    "secrets:env": "node scripts/infisical-env.ts",
     "lint": "pnpm -r run lint",
-    "typecheck": "pnpm --filter=\"!@angora/config\" -r exec tsc --noEmit",
+    "typecheck": "pnpm run build:packages && pnpm --filter=\"!@angora/config\" -r exec tsc --noEmit",
     "test": "pnpm -r run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

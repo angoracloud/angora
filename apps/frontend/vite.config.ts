@@ -22,27 +22,16 @@ function resolveCommitHash(): string {
   }
 }
 
-// React Compiler stays on the default `compilationMode: 'infer'` — DO NOT
-// switch to 'all'. Forcing 'all' hits a real bug in
-// babel-plugin-react-compiler@1.0.0 (BuildHIR::lowerAssignment, category
-// "Todo") on ordinary destructuring: 2+ defaulted params in one destructured
-// function signature (e.g. `function F({ a = 1, b = 2 })`), or a
-// rename-with-default (e.g. `const { data: foo = [] } = useQuery()`).
-// Confirmed non-fatal even under 'all' — `pnpm build` still succeeds, the
-// affected function just doesn't get memoized — but 'infer' avoids
-// triggering it at all: its own eligibility check declines this exact shape
-// rather than attempting and failing on it (verified empirically, not just
-// per the docs).
+// React Compiler stays on the default `compilationMode: 'infer'` — don't switch
+// to 'all'. Under 'all', babel-plugin-react-compiler@1.0.0 hits a BuildHIR bug on
+// ordinary destructuring: 2+ defaulted params (`function F({ a = 1, b = 2 })`) or
+// a rename-with-default (`const { data: foo = [] } = useQuery()`). It's non-fatal
+// — the build succeeds, that function just isn't memoized — but 'infer' declines
+// the shape outright instead of failing on it.
 //
-// Revisit if either of these change:
-//   - A babel-plugin-react-compiler release newer than 1.0.0 ships:
-//     `npm view babel-plugin-react-compiler dist-tags`.
-//   - The native Rust port of the compiler lands (in progress upstream,
-//     with SWC/Oxc compatibility layers). @swc/react-compiler exists today
-//     but is NOT that port — per its maintainer it only does a fast
-//     eligibility pre-check and still delegates the actual transform to
-//     this same babel-plugin-react-compiler code, so it inherits this bug
-//     rather than avoiding it.
+// Revisit when a release newer than 1.0.0 ships, or when the native Rust port
+// lands. @swc/react-compiler is not that port: it only pre-checks eligibility and
+// still delegates to this same Babel plugin, so it inherits the bug.
 export default defineConfig(
   mergeConfig(base, {
     root: 'src',
@@ -50,10 +39,9 @@ export default defineConfig(
     server: {
       port: 3000,
       proxy: {
-        // 'backend' is the Docker Compose service name and only resolves
-        // inside the Docker network (that's what nginx.conf uses in the
-        // production container). `pnpm dev` runs on the host, where the
-        // backend is reachable via its published port instead.
+        // localhost, not the `backend` service name: that only resolves inside
+        // the Docker network, which is what nginx.conf uses. `pnpm dev` runs on
+        // the host and reaches the backend via its published port.
         '/api': {
           target: 'http://localhost:8080',
           changeOrigin: true,

@@ -1,5 +1,8 @@
 package cloud.angora
 
+import cloud.angora.config.SecretsProvider
+import cloud.angora.config.firstOf
+import cloud.angora.config.loadSecrets
 import cloud.angora.constants.BackendConstants
 import cloud.angora.plugins.configureErrorHandling
 import cloud.angora.plugins.configureHttp
@@ -26,18 +29,21 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
-    val database = connectDatabase()
-    val dependencies = Dependencies(database)
+    // First, because the database connection below is configured from it.
+    val secrets = loadSecrets()
+
+    val database = connectDatabase(secrets)
+    val dependencies = Dependencies(database, secrets)
 
     configureMonitoring()
     configureErrorHandling()
-    configureHttp()
-    configureSecurity(dependencies.authService, dependencies.serviceTokenService)
+    configureHttp(secrets)
+    configureSecurity(dependencies.authService, dependencies.serviceTokenService, secrets)
     configureValidation()
 
     dependencies.serviceTokenService.register(
         name = BackendConstants.Auth.DISCORD_BOT_TOKEN_NAME,
-        token = System.getenv(BackendConstants.Auth.SERVICE_TOKEN_DISCORD_BOT_ENV)
+        token = secrets.get(BackendConstants.Auth.SERVICE_TOKEN_DISCORD_BOT_ENV)
     )
 
     startExpiredSessionSweep(dependencies.authService)
@@ -53,11 +59,29 @@ fun Application.module() {
 /**
  * Runs Flyway, then opens the Exposed connection — in that order, so the schema is
  * always current before any query can run.
+ *
+ * Each setting comes from [secrets] first, under either spelling, and otherwise
+ * from `application.yaml`'s `${DB_URL:default}` substitution.
  */
-private fun Application.connectDatabase(): Database {
-    val url = environment.config.property("database.url").getString()
-    val user = environment.config.property("database.user").getString()
-    val password = environment.config.property("database.password").getString()
+private fun Application.connectDatabase(secrets: SecretsProvider): Database {
+    fun setting(vararg secretNames: String, configKey: String): String =
+        secrets.firstOf(*secretNames)
+            ?: environment.config.property(configKey).getString()
+
+    val url = setting(
+        BackendConstants.DatabaseDefaults.URL_ENV,
+        configKey = BackendConstants.DatabaseDefaults.URL_PROPERTY
+    )
+    val user = setting(
+        BackendConstants.DatabaseDefaults.USER_ENV,
+        BackendConstants.DatabaseDefaults.USER_FALLBACK_ENV,
+        configKey = BackendConstants.DatabaseDefaults.USER_PROPERTY
+    )
+    val password = setting(
+        BackendConstants.DatabaseDefaults.PASSWORD_ENV,
+        BackendConstants.DatabaseDefaults.PASSWORD_FALLBACK_ENV,
+        configKey = BackendConstants.DatabaseDefaults.PASSWORD_PROPERTY
+    )
 
     Flyway.configure()
         .dataSource(url, user, password)

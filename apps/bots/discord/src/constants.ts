@@ -7,6 +7,9 @@ export const BOT_CONFIG = {
   REST_API_VERSION: '10',
   /** Env var holding the bot's service token for authenticating to the backend. */
   SERVICE_TOKEN_ENV: 'SERVICE_TOKEN_DISCORD_BOT',
+  BACKEND_URL_ENV: 'BACKEND_URL',
+  BOT_TOKEN_ENV: 'DISCORD_BOT_TOKEN',
+  CLIENT_ID_ENV: 'DISCORD_CLIENT_ID',
 } as const
 
 export const BOT_ROUTES = {

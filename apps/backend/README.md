@@ -12,44 +12,31 @@ See the [root README](../../README.md) for the one-command `docker-compose up --
 
 ## Running
 
-**Via Docker/Podman** (from the repo root): `docker-compose up --build backend` — needs `postgres` running too; `docker-compose up --build postgres backend` starts both.
+**In containers**, from the repo root: `docker-compose up --build postgres backend`.
 
-**Locally, with hot reload** (recommended for development):
+**Locally, with hot reload:**
 
 ```bash
-# Start just the database in Docker, publishing 5432 to the host
-docker-compose up -d postgres   # from the repo root
-
-cd apps/backend
-mvn compile exec:java
+docker-compose up -d postgres    # from the repo root
+cd apps/backend && mvn compile exec:java
 ```
 
-Or from the repo root, without `cd`-ing in: `pnpm run dev:backend` — same command, just a shortcut.
+`pnpm run dev:backend` from the root is a shortcut for the same thing. No env vars needed — `DB_URL` defaults to `localhost:5432`.
 
-No env vars needed — `DB_URL` defaults to `localhost:5432` when nothing overrides it. See "Database access" below for exactly how that works.
+This runs Ktor's `EngineMain` in development mode. Port, host, module and database config live in `src/main/resources/application.yaml` — which must be `.yaml`, not `.yml` (see Troubleshooting).
 
-This runs via Ktor's `EngineMain` in development mode (`-Dio.ktor.development=true`, set by `exec-maven-plugin` in `pom.xml`). Server config — port, host, which module to load, and the database connection — all live in `src/main/resources/application.yaml`, not in `Application.kt`. Must be `.yaml`, not `.yml` — see Troubleshooting.
-
-Once it's up, edits to `.kt` files take effect on the *next request* as soon as they're recompiled — no restart of the running server needed:
+Edits take effect on the next request once recompiled, with no server restart:
 
 ```bash
 mvn compile
+# or, automatically: find src -name '*.kt' | entr -r mvn -q compile
 ```
 
-To trigger that automatically on save instead of running it by hand: enable "Build project automatically" in IntelliJ, or use a file watcher —
+Only route and module logic reloads cleanly. Top-level `val`s reinitialize on every reload, and changes to `main()` or to dependencies need a full restart.
+
+**Locally, packaged** (closest to how Docker runs it):
 
 ```bash
-sudo apt install entr   # one-time
-find src -name '*.kt' | entr -r mvn -q compile
-```
-
-Caveats: only route/module logic reloads cleanly this way. Top-level `val`s (like the `database` connection) get reinitialized on every reload since they live in the same reloaded class. Changes to `main()` itself, or new dependencies, still need you to stop and re-run `mvn compile exec:java`.
-
-**Locally, packaged jar** (closer to how Docker actually runs it):
-
-```bash
-docker-compose up -d postgres   # from the repo root
-
 cd apps/backend
 mvn clean package -DskipTests    # requires JDK 25
 java -jar target/backend.jar
@@ -105,10 +92,9 @@ Test servers: `curl -b cookies.txt http://localhost:8080/api/discord/servers` (a
 
 ## Authentication
 
-Login exchanges an email and password for an **opaque session token**, delivered as a cookie. The cookie carries the token and nothing else — no user id, role, or expiry — because the `sessions` table is the authority on all of that. That is what makes logout, suspension, and role changes take effect on the *next request* rather than whenever a self-describing token would have expired.
+Login exchanges email and password for an **opaque session token**, delivered as a cookie. The cookie carries the token and nothing else — no user id, role, or expiry — because the `sessions` table is the authority. That's what makes logout, suspension and role changes take effect on the *next request*.
 
 ```bash
-# Log in, keeping the cookie jar
 curl -c cookies.txt -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@example.com","password":"your-password"}'
@@ -117,32 +103,34 @@ curl -b cookies.txt http://localhost:8080/api/auth/me
 curl -b cookies.txt -X POST http://localhost:8080/api/auth/logout
 ```
 
-**Cookie**: named `angora_session`, `HttpOnly` (so page scripts can't read it), `SameSite=Strict`, `Path=/`, 7-day lifetime. It is marked `Secure` when `COOKIE_SECURE=true` — required in any deployment with TLS, and off by default because local dev runs on plain HTTP where a `Secure` cookie would never be sent. No CORS configuration is needed for any setup this repo ships: nginx serves the frontend on the API's own origin in Docker Compose, and `pnpm run dev:frontend` proxies `/api` to the backend from the Vite dev server (`apps/frontend/vite.config.ts`), so the browser is same-origin there too. `CORS_ALLOWED_ORIGINS` is an escape hatch for a deployment that genuinely puts the frontend on another origin, and it ships empty deliberately — the cookie makes every request credentialed, so a default value would grant that origin authenticated access anywhere the variable isn't overridden. Wildcards are rejected because credentialed requests require exact origins.
+**Cookie**: `angora_session`, `HttpOnly`, `SameSite=Strict`, `Path=/`, 7 days. Marked `Secure` when `COOKIE_SECURE=true` — required behind TLS, off by default because a `Secure` cookie is never sent over plain-HTTP dev.
 
-**Identifying the user**: login takes an email and password with no company selector. `users` is still unique on `(company_id, email)`, but `V7` adds a global unique index on `lower(email)` (for non-soft-deleted rows), which makes email alone a valid lookup key — the right trade for a self-hosted install that is normally one company. Lookups are case-insensitive.
+No CORS config is needed for anything this repo ships: nginx serves the frontend on the API's origin, and `pnpm run dev:frontend` proxies `/api`, so both are same-origin. `CORS_ALLOWED_ORIGINS` is an escape hatch for a genuinely cross-origin deployment, and ships empty on purpose — the cookie makes every request credentialed, so a default would grant that origin authenticated access. Wildcards are rejected.
+
+**Identifying the user**: no company selector at login. `users` stays unique on `(company_id, email)`, but `V7` adds a global unique index on `lower(email)` for non-deleted rows, making email alone a valid, case-insensitive lookup key — the right trade for a self-hosted install that is normally one company.
 
 **Two hashing schemes, deliberately**:
 
 | Secret | Algorithm | Why |
 | --- | --- | --- |
 | Passwords | Argon2id (m=19456 KiB, t=2, p=1), via Bouncy Castle | User-chosen and low-entropy, so it must be slow to attack |
-| Session & service tokens | SHA-256 | 256-bit `SecureRandom` values with nothing to guess; hashing only stops a leaked database yielding live credentials. Verified on every request, where a slow hash would tax the whole API for no gain |
+| Session & service tokens | SHA-256 | 256-bit `SecureRandom` values with nothing to guess. Hashing only stops a leaked database yielding live credentials, and these are verified on every request |
 
-Password hashes are stored as PHC strings (`$argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>`), so the parameters travel with each hash. Raising the cost later needs no migration and doesn't invalidate existing passwords.
+Password hashes are PHC strings (`$argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>`), so parameters travel with the hash. Raising the cost later needs no migration.
 
-**Every failed login returns the same response** — `401` with code `invalid_credentials` — whether the email is unknown, the password is wrong, or the account is locked, suspended, invited, or deactivated. Distinguishing them would tell an attacker which addresses have accounts. For the same reason, a login for an unknown email still runs a throwaway Argon2 hash, so a missing account doesn't answer measurably faster. The real reason is logged server-side against the request id, so operators can still diagnose it:
+**Every failed login returns the same `401` / `invalid_credentials`** — unknown email, wrong password, locked, suspended, invited or deactivated alike. Anything else would tell an attacker which addresses have accounts. An unknown email still runs a throwaway Argon2 hash so it doesn't answer measurably faster. The real reason is logged against the request id:
 
 ```
 [reqId=8a45bc19-...] c.angora.service.AuthServiceImpl - Login failed: status is 'suspended' (user a15c328a-...)
 ```
 
-**Two defenses against guessing**, covering different attacks: `users.failed_login_attempts` locks a single account for 15 minutes after 5 consecutive failures, and a rate limiter caps `/api/auth/login` at 10 requests/minute so one client can't work through many accounts. A throttled request returns `429` in the standard error envelope with code `rate_limited`.
+**Two defenses against guessing**: `users.failed_login_attempts` locks one account for 15 minutes after 5 consecutive failures; a rate limiter caps `/api/auth/login` at 10/minute so one client can't sweep many accounts. Throttled requests return `429` with code `rate_limited`.
 
-**Service tokens** authenticate machine callers (the bots), which hold no user identity and no role. Hashes live in `service_tokens`; the backend registers the Discord bot's at startup from `SERVICE_TOKEN_DISCORD_BOT`, and the bot sends the raw value as `Authorization: Bearer <token>`. Both services must see the same value. The two realms are fully separate — a session cookie is rejected on a service route and a service token is rejected on a user route. Revoking a token (setting `revoked_at`) takes effect immediately; *rotating* one currently means changing the configured value and restarting, until an admin endpoint to issue and revoke them lands with user management.
+**Service tokens** authenticate the bots, which have no user identity or role. Hashes live in `service_tokens`; the backend registers the Discord bot's at startup from `SERVICE_TOKEN_DISCORD_BOT`, and the bot sends the raw value as a bearer token. The realms are separate — a cookie is rejected on a service route and vice versa. Revoking (`revoked_at`) is immediate; rotating means changing the value and restarting, until an admin endpoint lands.
 
-**Roles** come from the `roles` table (`owner`, `admin`, `member`, `customer`, seeded by `V2`). The role name rides on `UserPrincipal` and is read fresh from the database on every request rather than cached in the cookie, so a role change takes effect immediately. Nothing gates on it yet — every authenticated user can reach the CRM routes, and adding per-role checks is follow-on work.
+**Roles** come from the `roles` table (`owner`, `admin`, `member`, `customer`, seeded by `V2`), read fresh from the database per request rather than cached in the cookie. Nothing gates on them yet — every authenticated user reaches every CRM route.
 
-**Not yet implemented**: signup, invitations, password reset, email verification, and TOTP two-factor. The `users.two_factor_*` and `email_verified_at` columns are reserved for those and currently unused. There is also no admin UI for creating users, so the first one has to be inserted directly (see [Seeding the first user](#seeding-the-first-user)).
+**Not yet implemented**: signup, invitations, password reset, email verification, TOTP. The `users.two_factor_*` and `email_verified_at` columns are reserved. There's no admin UI either, so the first user is inserted by hand.
 
 ### Seeding the first user
 
@@ -174,7 +162,7 @@ The `status` must be `active`: a user left at the default `invited` cannot log i
 
 ## Error Handling & Request Logging
 
-Every 4xx/5xx response returns the same JSON envelope:
+Every 4xx/5xx response returns the same envelope:
 
 ```json
 {
@@ -186,34 +174,33 @@ Every 4xx/5xx response returns the same JSON envelope:
 }
 ```
 
-This is produced by `StatusPages` (`src/plugins/ErrorHandling.kt`), and every error response — including authentication challenges — goes through the same `call.respondError(...)` helper in `src/error/ErrorResponses.kt`, so the shape can't drift. It handles five cases:
+`StatusPages` (`src/plugins/ErrorHandling.kt`) produces it, and every error path — authentication challenges included — goes through `call.respondError(...)` in `src/error/ErrorResponses.kt`, so the shape can't drift. Cases handled:
 
-- **`ApiException`** (`src/error/ApiException.kt`) — the convention for expected error conditions. Routes/services throw `ApiException(statusCode, code, message)`; StatusPages catches it and builds the envelope with that status/code/message. This is how every new endpoint (auth, tickets, channels, ...) should signal a 4xx, instead of manually calling `call.respond(status, someAdHocBody)`.
-- **`RequestValidationException`** — thrown by Ktor's `RequestValidation` plugin when incoming DTO payload rules fail. StatusPages catches it and returns `400 Bad Request` with `code: "validation_error"` and a combined reason message.
-- **`BadRequestException` / `SerializationException`** — thrown by Ktor/kotlinx.serialization when request JSON is malformed or invalid. StatusPages catches it and returns `400 Bad Request` with `code: "bad_request"` or `code: "invalid_json"` rather than falling through to a 500 error.
-- **A malformed request body** — absent, unparseable, or sent without a usable `Content-Type`. Ktor raises two unrelated exception types for these (`BadRequestException`, and `ContentTransformationException` whose subclass covers the header case); both map to `400` with `code: "invalid_request_body"`. Without handling both, one of them falls through to the `Throwable` branch and a client mistake gets reported as a server error.
-- **Any other `Throwable`** — logged server-side, mapped to a generic `500` with `code: "internal_error"` so unexpected exceptions never leak a stack trace to the client.
-- **Unmatched routes** — Ktor's default 404 is replaced with the same envelope (`code: "not_found"`) instead of a plain-text response.
-- **Rate-limited requests** — `RateLimit` rejects before any handler runs, so `429` is mapped explicitly (`code: "rate_limited"`); otherwise it would be the one response in the API with no envelope.
+| Cause | Result |
+| ----- | ------ |
+| `ApiException` | The status/code/message it carries. This is how routes and services should signal any 4xx, rather than an ad-hoc `call.respond` |
+| `RequestValidationException` | `400`, `validation_error` |
+| `BadRequestException` / `SerializationException` | `400`, `bad_request` or `invalid_json` |
+| Absent or unparseable body, or a missing `Content-Type` | `400`, `invalid_request_body`. Ktor raises two unrelated types here; both are mapped, or one falls through and a client mistake reads as a server error |
+| Any other `Throwable` | `500`, `internal_error`, logged server-side so no stack trace leaks |
+| Unmatched route | `404`, `not_found`, replacing Ktor's plain-text default |
+| Rate limited | `429`, `rate_limited`. Mapped explicitly because `RateLimit` rejects before any handler runs |
 
-**Request IDs**: `CallId` (installed alongside `CallLogging`/`StatusPages`) accepts an inbound `X-Request-Id` header, or generates a UUID if the client didn't send one, and echoes it back on the response via the same header. That id is also what populates the `requestId` field in every error envelope.
-
-**Logs**: `CallLogging` puts the request id into SLF4J's MDC under the key `requestId` for the duration of each call, and `src/main/resources/logback.xml` includes `%X{requestId:-none}` in the log pattern — so every log line emitted while handling a request (including from `service`/`repository` code via their own `LoggerFactory.getLogger(...)`) is tagged `[reqId=<id>]`, making a single request's logs traceable across layers.
+**Request IDs**: `CallId` accepts an inbound `X-Request-Id` or generates a UUID, echoes it on the response, and fills the envelope's `requestId`. `CallLogging` puts it in SLF4J's MDC, and `logback.xml` renders `%X{requestId:-none}`, so every line emitted during a request is tagged `[reqId=<id>]` across all layers.
 
 ## Database access
 
-The backend connects via Exposed, reading the connection details from Ktor's config (`environment.config`) rather than `System.getenv()` directly:
+Every configurable value goes through `SecretsProvider` (`src/config/`), built once at the top of `Application.module()`. The three database settings check the provider first — under the `DB_*` name, then the `POSTGRES_*` one `docker-compose.yml` uses — and otherwise fall back to Ktor's config:
 
 ```kotlin
-val database = Database.connect(
-    url = environment.config.property("database.url").getString(),
-    driver = "org.postgresql.Driver",
-    user = environment.config.property("database.user").getString(),
-    password = environment.config.property("database.password").getString()
-)
+fun setting(vararg secretNames: String, configKey: String): String =
+    secrets.firstOf(*secretNames)
+        ?: environment.config.property(configKey).getString()
 ```
 
-All config — including the database block — lives in the one `application.yaml`:
+Both spellings are checked so a secrets project stores each value once. No `DB_URL` equivalent — `POSTGRES_DB` is a database name, not a JDBC URL.
+
+That fallback resolves `application.yaml`, which holds the only config block:
 
 ```yaml
 database:
@@ -222,30 +209,30 @@ database:
   password: "${DB_PASSWORD:angora}"
 ```
 
-`${VAR:default}` is Ktor's own environment-variable substitution (no extra library). The rule is always the same, everywhere this file is read: **if a real `DB_URL`/`DB_USER`/`DB_PASSWORD` environment variable is set, use it; otherwise fall back to the literal default shown.** There's no per-environment file and no `-config=` flag to remember — the same `application.yaml` produces different actual values only because different launch contexts set different real env vars:
+`${VAR:default}` is Ktor's own substitution: if the real env var is set, use it, otherwise the literal default. There's no per-environment file and no `-config=` flag — the same `application.yaml` yields different values only because launch contexts set different env vars:
 
-| Context | Real env vars set? | Resolved `DB_URL` |
+| Context | Env vars set? | Resolved `DB_URL` |
 | --- | --- | --- |
-| Local (`mvn compile exec:java` / bare `java -jar`) | No | Falls through to the default: `localhost:5432` |
-| `docker-compose up` (dev) | Yes — `docker-compose.yml` sets `DB_URL=postgres:5432` explicitly | `postgres:5432` (from the env var, overriding the default) |
-| `docker-compose --env-file .env.production up` | Yes — same `docker-compose.yml`, but `POSTGRES_PASSWORD` (etc.) now comes from `.env.production` | `postgres:5432`, with the production password |
+| Local (`exec:java`, bare `java -jar`) | No | `localhost:5432` (the default) |
+| `docker-compose up` | Yes, compose sets `DB_URL` | `postgres:5432` |
+| `docker-compose --env-file .env.production up` | Same, with production credentials | `postgres:5432`, production password |
 
-The last two rows use the exact same `application.yaml` and the exact same Docker image — the dev/production split happens entirely at the `docker-compose`/`.env` layer (see the root README), one level above this file. `application.yaml` never needs to know which one it's in; it just reads whatever's in its environment.
+The last two use an identical image and `application.yaml`; the dev/production split happens entirely at the compose/`.env` layer.
+
+The provider indirection is also what lets these come from Infisical instead, behind `INFISICAL_ENABLED` (off by default — see the root README's [Secret Management](../../README.md#secret-management-infisical)). With the flag off, behavior is identical to plain `System.getenv`. With it on, the backend fetches at startup and refuses to start if Infisical is unreachable.
 
 ### Environment variables
 
-| Variable      | Default                                    | Notes                                                                                     |
-| -------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `DB_URL`      | `jdbc:postgresql://localhost:5432/angora`  | Docker Compose overrides this to `postgres:5432` for the containerized backend |
-| `DB_USER`     | `angora`                                    |                                                                                                |
-| `DB_PASSWORD` | `angora`                                    |                                                                                                |
-| `SERVICE_TOKEN_DISCORD_BOT` | _(unset)_                     | Shared secret the Discord bot authenticates with. Registered into `service_tokens` at startup; must match the bot's own value. Unset means the bot-sync route rejects every caller, and a warning is logged |
-| `COOKIE_SECURE` | `false`                                   | Marks the session cookie `Secure`. Must be `true` wherever TLS terminates in front of the backend; `false` locally, since a `Secure` cookie is never sent over plain HTTP |
-| `CORS_ALLOWED_ORIGINS` | _(empty)_                          | Comma-separated exact origins allowed to send credentialed cross-origin requests. Empty is correct in every setup this repo ships — see [Authentication](#authentication). No default origin is baked in on purpose: a value grants that origin authenticated access, and a default would do so everywhere the variable isn't overridden. Wildcards are not accepted — Ktor refuses to combine one with credentials |
+| Variable | Default | Notes |
+| -------- | ------- | ----- |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/angora` | Compose overrides this to `postgres:5432` |
+| `DB_USER` | `angora` | Also looked up as `POSTGRES_USER` |
+| `DB_PASSWORD` | `angora` | Also looked up as `POSTGRES_PASSWORD` |
+| `SERVICE_TOKEN_DISCORD_BOT` | _(unset)_ | Registered into `service_tokens` at startup; must match the bot's value. Unset means the bot-sync route rejects everyone, with a warning logged |
+| `COOKIE_SECURE` | `false` | Must be `true` behind TLS; `false` locally |
+| `CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated exact origins. Empty is correct for everything this repo ships — see [Authentication](#authentication). Wildcards are rejected |
 
-In Docker Compose the database values are set from `POSTGRES_DB`/`POSTGRES_USER`/`POSTGRES_PASSWORD` — see the root README's [Environment Variables](../../README.md#environment-variables) section. That's also where the actual dev-vs-production credential split happens (`.env` vs `.env.production`) — this module doesn't participate in that choice at all, it just reads whatever ends up in its environment.
-
-The three database variables are never read directly via `System.getenv()` in Kotlin — `Application.kt` reads them through `environment.config.property(...)`, which resolves the substitution in `application.yaml`. The auth and Discord variables above are read with `System.getenv()` instead, since they aren't part of that config block.
+In Compose these come from `POSTGRES_DB`/`POSTGRES_USER`/`POSTGRES_PASSWORD` — see the root README's [Environment Variables](../../README.md#environment-variables). The dev/production split lives there, not here.
 
 ## Database Schema
 
@@ -269,38 +256,33 @@ Current tables (all UUID-keyed, all scoped by `company_id` where relevant — se
 
 ## Troubleshooting
 
-**Maven build fails**: check the JDK version in `Dockerfile` matches the Kotlin version; verify dependency versions are compatible; check Maven Central for latest versions.
+**Maven build fails**: check the JDK version in `Dockerfile` matches the Kotlin version, and that dependency versions are compatible.
 
-**A `dependency-reduced-pom.xml` file appears in `apps/backend/` after building**: this is a normal byproduct of the Maven Shade Plugin (used to build `target/backend.jar`) — it's gitignored, safe to ignore.
+**`dependency-reduced-pom.xml` appears after building**: a normal Shade Plugin byproduct. Gitignored, ignore it.
 
-**`java -jar target/backend.jar` fails with "Neither port nor sslPort specified"**: `application.yaml` isn't being found. Two known causes, both already fixed in this repo but worth knowing if they resurface: (1) the file must be named `application.yaml`, not `application.yml` — Ktor's automatic config-file discovery only recognizes the former in a packaged jar (`.yml` happens to work under `mvn compile exec:java`'s raw classpath, which masks the problem in dev); (2) `maven-shade-plugin` must include a `ServicesResourceTransformer` — without it, only one of the two `META-INF/services/io.ktor.server.config.ConfigLoader` providers (HOCON's and YAML's, contributed by different dependency jars) survives shading, silently dropping the other.
+**`java -jar target/backend.jar` fails with "Neither port nor sslPort specified"**: `application.yaml` isn't being found. Two causes, both already fixed here but worth knowing if they resurface — the file must be `.yaml`, not `.yml` (Ktor's packaged-jar discovery only recognizes the former; `.yml` works under `exec:java`, which masks it in dev), and `maven-shade-plugin` needs a `ServicesResourceTransformer`, or only one of the two `ConfigLoader` service providers survives shading.
 
-**`java -jar target/backend.jar` fails with "Invalid signature file digest for Manifest main attributes"**: a dependency ships a *signed* jar, and shading repacked its contents, invalidating the signature — the JVM then refuses to load the fat jar at all. Bouncy Castle is the one signed jar in the current tree, and `maven-shade-plugin` has a `<filters>` block stripping `META-INF/*.SF`, `*.DSA`, and `*.RSA` **from `org.bouncycastle` only**.
+**"Invalid signature file digest for Manifest main attributes"**: a signed jar was repacked by shading, so the JVM refuses the fat jar. Bouncy Castle is the only signed jar here, and `<filters>` strips `META-INF/*.SF`/`*.DSA`/`*.RSA` **from `org.bouncycastle` only**.
 
-If you hit this after adding a *different* dependency, that scoping is working as intended — decide deliberately rather than widening the filter to `*:*`. Stripping is safe when the library is used through its plain classes, as BC is here (`Argon2BytesGenerator`), because the fat jar is unsigned as a whole anyway and download-time integrity is enforced by Maven's checksum verification, not these files. It is **not** safe if the library is registered as a JCE provider via `Security.addProvider()` — JCE requires an intact signature and will reject a stripped provider at runtime with "JCE cannot authenticate the provider".
+If a *different* dependency hits this, that scoping is working — decide deliberately rather than widening to `*:*`. Stripping is safe for a library used through plain classes (as BC is, via `Argon2BytesGenerator`), since the fat jar is unsigned anyway and integrity comes from Maven's checksums. It is **not** safe for anything registered via `Security.addProvider()`: JCE rejects a stripped provider with "JCE cannot authenticate the provider".
 
-Note this failure appears **only in the packaged jar** — `mvn test` and `mvn compile exec:java` use the plain classpath and pass regardless, so a green test run doesn't rule it out.
+This only shows up in the packaged jar — `mvn test` and `exec:java` use the plain classpath and pass regardless.
 
-**Login fails with the correct password**: check the user's `status` is `active` (the column defaults to `invited`, which cannot log in) and that `locked_until` is null or past — 5 consecutive failures lock an account for 15 minutes. Both cases deliberately return the same `invalid_credentials` response as a wrong password, so the distinguishing detail is in the server log: grep for `Login failed:` and match on the request id.
+**Login fails with the correct password**: check `status` is `active` (it defaults to `invited`, which can't log in) and `locked_until` is null or past — 5 failures lock the account for 15 minutes. Both return the same `invalid_credentials` as a wrong password by design, so grep the server log for `Login failed:` and match the request id.
 
-**Every login returns 429**: the login rate limiter allows 10 requests/minute. Scripted testing hits this quickly; wait a minute or restart the backend.
+**Every login returns 429**: the limiter allows 10/minute. Wait, or restart the backend.
 
-**Ktor dependency added but nothing works**: double check it uses the `-jvm`-suffixed artifact coordinate (e.g. `ktor-server-config-yaml-jvm`, not `ktor-server-config-yaml`) — see the note in the AGENTS.md file for this module. The non-suffixed coordinate for Kotlin-multiplatform Ktor modules resolves under plain Maven to a metadata-only stub with zero real classes; it fails silently rather than erroring, which makes this easy to miss.
+**Ktor dependency added but nothing works**: use the `-jvm` coordinate (`ktor-server-config-yaml-jvm`). The non-suffixed one resolves to a metadata-only stub with no classes, and fails silently.
 
-**Backend won't start**:
+**Backend won't start**: check `docker-compose logs postgres` and `logs backend`, then `curl http://localhost:8080/api/health`. Inside Docker, `DB_URL` must use `postgres` as the host, not `localhost`.
 
-- Check PostgreSQL is healthy: `docker-compose logs postgres`
-- Verify the database connection: `docker-compose logs backend`
-- Test manually: `curl http://localhost:8080/api/health`
-- Make sure `DB_URL` uses `postgres` as the hostname (not `localhost`) when running inside Docker
+**Flyway error on startup**:
 
-**Backend fails on startup with a Flyway error**: check the exact message in `docker-compose logs backend` first.
+- Checksum mismatch / `FlywayValidateException` — an already-applied migration was edited. Revert it and add a new migration instead. On a local database only, dropping it and letting Flyway rebuild also works.
+- A SQL error in a new migration — fix the `.sql` and restart. Flyway never recorded it as applied, so it retries cleanly.
 
-- `FlywayValidateException` / checksum mismatch: an already-applied migration file was edited after the fact. Flyway hashes each migration and refuses to proceed if a previously-run file no longer matches what was recorded — revert the edit and add a new migration instead, or (local dev database only, never shared/production data) drop the database and let Flyway recreate it from scratch.
-- Any actual SQL error (bad syntax, FK violation, etc.) in a new migration: fix the `.sql` file and restart — Flyway hasn't recorded that version as applied, so it'll retry it cleanly next launch.
+**`mvn test` fails with `Could not find a valid Docker environment`**: Testcontainers needs a working Docker or Podman socket.
 
-**`mvn test` fails with `Could not find a valid Docker environment`**: Testcontainers (see Testing above) needs a working Docker or Podman socket to start its ephemeral Postgres container.
-
-- Docker: works out of the box, nothing to configure.
-- Podman: start the user socket once with `systemctl --user start podman.socket`, then point Testcontainers at it: `DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock mvn test`. Under rootless Podman, Testcontainers' Ryuk sidecar (which reaps containers if the JVM crashes) sometimes can't start — add `TESTCONTAINERS_RYUK_DISABLED=true` if you see it fail; containers still get stopped normally on a clean JVM exit either way.
-- CI needs none of this — GitHub's `ubuntu-latest` runners have Docker preinstalled and running natively.
+- Docker: works as-is.
+- Podman: `systemctl --user start podman.socket`, then `DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock mvn test`. If the Ryuk sidecar fails to start under rootless Podman, add `TESTCONTAINERS_RYUK_DISABLED=true`; containers are still cleaned up on a clean JVM exit.
+- CI needs none of this.

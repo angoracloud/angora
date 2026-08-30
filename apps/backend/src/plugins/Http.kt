@@ -1,5 +1,6 @@
 package cloud.angora.plugins
 
+import cloud.angora.config.SecretsProvider
 import cloud.angora.constants.BackendConstants
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -20,7 +21,7 @@ import java.net.URI
  * frontend from the same origin as the API — it exists for `pnpm run dev:frontend`,
  * where Vite serves on another port.
  */
-fun Application.configureHttp() {
+fun Application.configureHttp(secrets: SecretsProvider) {
     install(ContentNegotiation) {
         json(Json {
             prettyPrint = true
@@ -30,7 +31,7 @@ fun Application.configureHttp() {
     }
 
     install(CORS) {
-        allowedOrigins().forEach { origin ->
+        allowedOrigins(secrets).forEach { origin ->
             allowHost(
                 host = origin.host + if (origin.port != -1) ":${origin.port}" else "",
                 schemes = listOf(origin.scheme)
@@ -47,8 +48,8 @@ fun Application.configureHttp() {
     }
 }
 
-private fun allowedOrigins(): List<URI> =
-    (System.getenv(BackendConstants.Auth.CORS_ALLOWED_ORIGINS_ENV) ?: "")
+private fun allowedOrigins(secrets: SecretsProvider): List<URI> =
+    secrets.get(BackendConstants.Auth.CORS_ALLOWED_ORIGINS_ENV, "")
         .split(",")
         .map { it.trim() }
         .filter { it.isNotEmpty() }

@@ -47,6 +47,19 @@ services:
       # Deliberately has no fallback origin — the session cookie makes requests
       # credentialed, so a default would grant one everywhere it isn't overridden.
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      # --- Infisical (see .env.example) ---
+      # Off by default; each service then reads plain env vars. Turned on, it
+      # resolves its own secrets at startup and refuses to boot if Infisical is
+      # unreachable. Postgres is the exception — see scripts/infisical-env.ts.
+      # The same block is repeated on the three bots below.
+      INFISICAL_ENABLED: ${INFISICAL_ENABLED:-false}
+      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://eu.infisical.com}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_ENV: ${INFISICAL_ENV:-dev}
+      INFISICAL_SECRET_PATH: ${INFISICAL_SECRET_PATH:-/}
+      INFISICAL_CLIENT_ID: ${INFISICAL_CLIENT_ID:-}
+      INFISICAL_CLIENT_SECRET: ${INFISICAL_CLIENT_SECRET:-}
+      INFISICAL_TOKEN: ${INFISICAL_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,6 +100,16 @@ services:
       context: .
       dockerfile: apps/bots/slack/Dockerfile
     container_name: angora-slack-bot
+    environment:
+      # --- Infisical (see .env.example) ---
+      INFISICAL_ENABLED: ${INFISICAL_ENABLED:-false}
+      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://eu.infisical.com}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_ENV: ${INFISICAL_ENV:-dev}
+      INFISICAL_SECRET_PATH: ${INFISICAL_SECRET_PATH:-/}
+      INFISICAL_CLIENT_ID: ${INFISICAL_CLIENT_ID:-}
+      INFISICAL_CLIENT_SECRET: ${INFISICAL_CLIENT_SECRET:-}
+      INFISICAL_TOKEN: ${INFISICAL_TOKEN:-}
     depends_on:
       backend:
         condition: service_healthy
@@ -110,6 +133,15 @@ services:
       BACKEND_URL: http://backend:8080
       # Must match the backend service's value above.
       SERVICE_TOKEN_DISCORD_BOT: ${SERVICE_TOKEN_DISCORD_BOT:-dev-discord-bot-token}
+      # --- Infisical (see .env.example) ---
+      INFISICAL_ENABLED: ${INFISICAL_ENABLED:-false}
+      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://eu.infisical.com}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_ENV: ${INFISICAL_ENV:-dev}
+      INFISICAL_SECRET_PATH: ${INFISICAL_SECRET_PATH:-/}
+      INFISICAL_CLIENT_ID: ${INFISICAL_CLIENT_ID:-}
+      INFISICAL_CLIENT_SECRET: ${INFISICAL_CLIENT_SECRET:-}
+      INFISICAL_TOKEN: ${INFISICAL_TOKEN:-}
     depends_on:
       backend:
         condition: service_healthy
@@ -127,6 +159,16 @@ services:
       context: .
       dockerfile: apps/bots/email/Dockerfile
     container_name: angora-email-bot
+    environment:
+      # --- Infisical (see .env.example) ---
+      INFISICAL_ENABLED: ${INFISICAL_ENABLED:-false}
+      INFISICAL_DOMAIN: ${INFISICAL_DOMAIN:-https://eu.infisical.com}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_ENV: ${INFISICAL_ENV:-dev}
+      INFISICAL_SECRET_PATH: ${INFISICAL_SECRET_PATH:-/}
+      INFISICAL_CLIENT_ID: ${INFISICAL_CLIENT_ID:-}
+      INFISICAL_CLIENT_SECRET: ${INFISICAL_CLIENT_SECRET:-}
+      INFISICAL_TOKEN: ${INFISICAL_TOKEN:-}
     depends_on:
       backend:
         condition: service_healthy

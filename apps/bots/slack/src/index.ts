@@ -1,4 +1,5 @@
 import http from 'node:http'
+import { loadSecrets } from '@angora/secrets'
 import { BOT_CONFIG, BOT_ROUTES } from './constants.js'
 
 const server = http.createServer((req, res) => {
@@ -18,4 +19,11 @@ const server = http.createServer((req, res) => {
 
 server.listen(BOT_CONFIG.DEFAULT_PORT, () => {
   console.log('Slack Bot ready')
+})
+
+// No secrets of its own yet; the result is discarded. Resolving them anyway means
+// this bot fails at boot on a broken Infisical config, like every other service.
+await loadSecrets().catch((err: unknown) => {
+  console.error('[Slack Bot] Could not load secrets:', err)
+  process.exit(1)
 })

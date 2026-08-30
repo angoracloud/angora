@@ -105,6 +105,7 @@ async function collectNpmDeps(): Promise<Dep[]> {
   const manifests = [
     'package.json',
     'packages/config/package.json',
+    'packages/secrets/package.json',
     'apps/frontend/package.json',
     'apps/bots/slack/package.json',
     'apps/bots/discord/package.json',

@@ -1,44 +1,41 @@
 # Slack bot
 
-Slack integration bot (`angora-slack-bot`) — Node.js service that talks to the backend.
+Node.js 24 + TypeScript 7 service (`angora-slack-bot`) that talks to the backend. Configs extend [`@angora/config`](../../../packages/config/README.md).
 
-- **Runtime**: Node.js 24+, TypeScript 7
-- **Config**: TypeScript/ESLint configs are extended from [`@angora/config`](../../../packages/config/README.md), the shared config package
-
-See the [root README](../../../README.md) for the one-command `docker-compose up --build` quickstart and repo-wide concerns (environment variables, CI, dependency guardrails). See the [Discord bot](../discord/README.md) and [Email bot](../email/README.md) READMEs — same layout, same commands.
+See the [root README](../../../README.md) for the compose quickstart and repo-wide concerns. The [Discord](../discord/README.md) and [Email](../email/README.md) bots share this layout and these commands.
 
 ## Running
 
-**Via Docker** (from the repo root): `docker-compose up --build slack-bot`
-
-**Locally**:
-
 ```bash
-cd apps/bots/slack
-pnpm run build
-pnpm run start
+docker-compose up --build slack-bot          # from the repo root
+
+cd apps/bots/slack && pnpm run build && pnpm run start
 ```
 
 ## Commands
 
-| Command             | What it does                                                                                     |
-| --------------------- | ---------------------------------------------------------------------------------------------------- |
-| `pnpm run lint`      | ESLint                                                                                                |
-| `pnpm run build`     | `tsc` — compiles `src/` to `dist/` (also the typecheck step; excludes `*.test.ts` from the output)  |
-| `pnpm run test`      | Vitest — currently just a placeholder smoke test, see the root README's [Limitations](../../../README.md#limitations) |
-| `pnpm run start`     | `node dist/index.js`                                                                                 |
+Run from `apps/bots/slack/`, or as `pnpm --filter angora-slack-bot run <script>`.
 
-Run these from `apps/bots/slack/`, or from the repo root as `pnpm --filter angora-slack-bot run <script>`.
-
-## Communicating with the backend
-
-Inside Docker, use the service name as hostname: `http://backend:8080/...` (not `localhost`).
+| Command | What it does |
+| ------- | ------------ |
+| `pnpm run lint` | ESLint |
+| `pnpm run build` | `tsc` — `src/` to `dist/`, also the typecheck step |
+| `pnpm run test` | Vitest — a placeholder, see [Limitations](../../../README.md#limitations) |
+| `pnpm run start` | `node dist/index.js` |
 
 ## Health check
 
-`src/index.ts` starts a minimal HTTP server on port `3002` exposing `GET /health` (`200 {"status":"ok"}`) — this is what `docker-compose.yml`'s healthcheck for `slack-bot` probes, and it's also what keeps the container running as a long-lived process. The port isn't published to the host, only reachable inside `angora-network`.
+`src/index.ts` runs a minimal HTTP server on `3002` serving `GET /health`. That's what `docker-compose.yml` probes, and what keeps the container alive as a long-lived process. The port isn't published to the host — it's reachable only inside `angora-network`.
+
+Inside Docker, reach the backend by service name: `http://backend:8080/...`, never `localhost`.
+
+## Secrets
+
+This bot has no secrets of its own yet, but still calls `loadSecrets()` from [`@angora/secrets`](../../../packages/secrets/README.md) at startup and discards the result, so a broken Infisical config fails it at boot like every other service. With `INFISICAL_ENABLED` off, that call just reads `process.env`.
+
+When it grows real credentials, read them from that provider, not `process.env`.
 
 ## Notes
 
 - `package.json` declares `"type": "module"` — don't remove it.
-- Not running / not doing anything visible: check `docker-compose logs slack-bot`.
+- Nothing visible happening? `docker-compose logs slack-bot`.

@@ -1,14 +1,37 @@
 import type { Client } from 'discord.js'
+import type { SecretsProvider } from '@angora/secrets'
 import { BOT_CONFIG, BOT_ROUTES } from '../constants.js'
 import type { GuildSyncPayload } from '../types/index.js'
 
-const backendUrl = process.env.BACKEND_URL || BOT_CONFIG.DEFAULT_BACKEND_URL
+// Explicitly `string`: BOT_CONFIG is `as const`, so the initializer would
+// otherwise narrow this to the default URL's literal type.
+let backendUrl: string = BOT_CONFIG.DEFAULT_BACKEND_URL
 
 /**
  * Service token authenticating this bot to the backend. The backend registers the
  * matching hash at startup from the same value, so the two must agree.
  */
-const serviceToken = process.env[BOT_CONFIG.SERVICE_TOKEN_ENV]
+let serviceToken: string | undefined
+
+/**
+ * The HTTP server listens before `loadSecrets()` resolves, so a request can reach
+ * this module before the token is bound.
+ */
+let configured = false
+
+/**
+ * Binds this module to the secrets resolved at startup. These were read from
+ * `process.env` at import time, which no longer works: with Infisical enabled the
+ * values aren't known until `loadSecrets()` completes.
+ */
+export function configureBackendService(secrets: SecretsProvider): void {
+  backendUrl = secrets.get(
+    BOT_CONFIG.BACKEND_URL_ENV,
+    BOT_CONFIG.DEFAULT_BACKEND_URL,
+  )
+  serviceToken = secrets.get(BOT_CONFIG.SERVICE_TOKEN_ENV)
+  configured = true
+}
 
 /**
  * Synchronizes an individual Discord guild's live state with the Angora backend.
@@ -16,6 +39,15 @@ const serviceToken = process.env[BOT_CONFIG.SERVICE_TOKEN_ENV]
 export async function syncGuildWithBackend(
   guildData: GuildSyncPayload,
 ): Promise<void> {
+  // Without the token the backend answers 401, which looks like a token mismatch
+  // rather than a startup race.
+  if (!configured) {
+    console.error(
+      `[Discord Bot] Skipped syncing guild ${guildData.name} — secrets are not resolved yet`,
+    )
+    return
+  }
+
   try {
     const res = await fetch(
       `${backendUrl}${BOT_ROUTES.BACKEND_SYNC_ENDPOINT}`,
